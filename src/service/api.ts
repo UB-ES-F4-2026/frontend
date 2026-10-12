@@ -1,5 +1,7 @@
 const API_BASE_URL = "/api";
 
+export type RequestStatus = "loading" | "success" | "error";
+
 export type QueryParams = Record<
   string,
   string | number | boolean | null | undefined
@@ -87,7 +89,7 @@ async function request<T>(
   return data as T;
 }
 
-export function get<T>(path: string, options?: RequestOptions): Promise<T> {
+export function fintechGet<T>(path: string, options?: RequestOptions): Promise<T> {
   return request<T>("GET", path, undefined, options);
 }
 
@@ -99,7 +101,7 @@ export function post<T>(
   return request<T>("POST", path, body, options);
 }
 
-export function put<T>(
+export function fintechPut<T>(
   path: string,
   body?: unknown,
   options?: RequestOptions,
@@ -107,7 +109,7 @@ export function put<T>(
   return request<T>("PUT", path, body, options);
 }
 
-export function patch<T>(
+export function fintechPatch<T>(
   path: string,
   body?: unknown,
   options?: RequestOptions,
@@ -115,6 +117,6 @@ export function patch<T>(
   return request<T>("PATCH", path, body, options);
 }
 
-export function del<T>(path: string, options?: RequestOptions): Promise<T> {
+export function fintechDel<T>(path: string, options?: RequestOptions): Promise<T> {
   return request<T>("DELETE", path, undefined, options);
 }
