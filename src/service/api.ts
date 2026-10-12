@@ -93,7 +93,7 @@ export function fintechGet<T>(path: string, options?: RequestOptions): Promise<T
   return request<T>("GET", path, undefined, options);
 }
 
-export function post<T>(
+export function fintechPost<T>(
   path: string,
   body?: unknown,
   options?: RequestOptions,
