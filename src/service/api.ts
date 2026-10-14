@@ -31,7 +31,9 @@ const buildUrl = (path: string, params?: QueryParams): string => {
   );
 
   for (const [k, v] of Object.entries(params ?? {})) {
-    if (v) url.searchParams.set(k, String(v));
+    if (v !== null && v !== undefined) {
+      url.searchParams.set(k, String(v));
+    }
   }
 
   return `${url.pathname}${url.search}`;
@@ -52,7 +54,7 @@ async function request<T>(
     } else if (typeof body === "string") {
       requestBody = body;
     } else {
-      headers.set("Content-Type", "Application/json");
+      headers.set("Content-Type", "application/json");
       requestBody = JSON.stringify(body);
     }
   }
@@ -62,7 +64,9 @@ async function request<T>(
     headers,
     body: requestBody,
     signal: options.signal,
-    credentials: "same-origin",
+    // NOTE: Podria ser necessari canviar aquesta línia de sota a "include" 
+    // si el frontend i l'api comencen a operar sota dominis diferents.
+    credentials: "same-origin", 
   });
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -81,7 +85,7 @@ async function request<T>(
         ? data.detail
         : typeof data === "object" && data !== null && "message" in data && typeof data.message === "string"
           ? data.message
-          : `Error HTTP ${response.status}`;
+          : `HTTP Error ${response.status}`;
 
     throw new ApiError(errorMessage, response.status, data);
   }

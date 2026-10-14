@@ -6,7 +6,7 @@ export interface UserType {
     email: string;
     name: string;
     surnames: string;
-    phone: number;
+    phone: string;
     birthdate: string;
     employment: string;
     email_verified: boolean;
@@ -24,7 +24,7 @@ export interface RegisterPayload {
   password: string;
   name: string;
   surnames: string;
-  phone: number;
+  phone: string;
   birthdate: string;
   employment: string;
 }
@@ -46,7 +46,7 @@ const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
   }
-  return "S'ha produït un error desconegut.";
+  return "An unknown error occured.";
 };
 
 
