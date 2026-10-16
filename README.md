@@ -262,3 +262,32 @@ docker compose exec frontend npm run build
 Això comprova que el frontend compila i genera `dist/` dins del contenidor. No publica la web ni cal executar-ho cada vegada que deses un fitxer.
 
 La configuració de pgAdmin i les instruccions de migracions són al [README del backend](https://github.com/UB-ES-F4-2026/backend#readme).
+
+
+## 9. Tests del frontend
+
+Els tests són a `tests/` i s’executen amb Vitest i React Testing Library en un
+entorn de navegador simulat (jsdom). `App.test.tsx` comprova la navegació,
+l’enllaç actiu i la redirecció de rutes desconegudes. Les pàgines importades
+es substitueixen per components simulats per aïllar les responsabilitats
+d’App; MemoryRouter proporciona el context real de navegació. No s’executa
+la lògica de les pàgines, no necessita el backend ni crea dades reals.
+
+Des de `frontend`, amb Node i les dependències instal·lades:
+
+```bash
+npm ci
+npm test
+```
+
+Amb Docker, des de `backend`, pots construir i executar només el servei de
+frontend per passar els tests, sense arrencar-ne les dependències:
+
+```bash
+docker compose build frontend
+docker compose run --rm --no-deps frontend npm test
+```
+
+`npm test` executa totes les proves una vegada i retorna un codi d’error si
+alguna falla. Els fitxers de tests es conserven al repositori. La compilació
+es comprova separadament amb `npm run build`.
