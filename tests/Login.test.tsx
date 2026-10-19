@@ -9,6 +9,7 @@ type AuthState = ReturnType<typeof useAuthStore.getState>;
 const state = vi.hoisted(() => ({
   status: "idle" as AuthState["status"],
   details: "",
+  active_account: null as AuthState["active_account"],
   login: vi.fn<AuthState["login"]>(),
 }));
 
@@ -42,6 +43,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   state.status = "idle";
   state.details = "";
+  state.active_account = null;
   state.login.mockResolvedValue(null);
 });
 
@@ -101,5 +103,13 @@ describe("Login aïllat del store", () => {
   it("ofereix l’enllaç per crear un compte", () => {
     renderLogin();
     expect(screen.getByRole("link", { name: "Regístrate" })).toHaveAttribute("href", "/register");
+  });
+
+  it("no mostra el formulari si la sessió ja està iniciada", () => {
+    state.active_account = { token: "token-123", id: 1, email: "gerard@example.com", created_at: "2026-10-17T10:00:00Z" };
+    renderLogin();
+    expect(screen.queryByRole("form")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Ya has iniciado sesión con el correo gerard@example.com.");
+    expect(screen.getByRole("link", { name: "Ir al inicio" })).toHaveAttribute("href", "/");
   });
 });
