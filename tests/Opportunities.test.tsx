@@ -44,7 +44,7 @@ describe("Opportunities", () => {
     state.status = "loading";
     renderOpportunities();
     
-    expect(screen.getByText("Cargando...")).toBeInTheDocument();
+    expect(screen.getByTestId("opportunities-skeleton")).toBeInTheDocument();
     expect(screen.queryByText("Reintentar")).not.toBeInTheDocument();
   });
 
@@ -65,6 +65,7 @@ describe("Opportunities", () => {
     
     // fetchOpportunities debe haberse llamado al montar (1) y al hacer clic (2)
     expect(state.fetchOpportunities).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId("opportunities-skeleton")).not.toBeInTheDocument();
   });
 
   it("muestra un mensaje alternativo cuando no hay oportunidades publicadas", () => {
@@ -73,7 +74,7 @@ describe("Opportunities", () => {
     renderOpportunities();
     
     expect(screen.getByText("¡Aún no hay oportunidades publicadas!")).toBeInTheDocument();
-    expect(screen.queryByText("Cargando...")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("opportunities-skeleton")).not.toBeInTheDocument();
   });
 
   it("renderiza la lista de tarjetas de oportunidades cuando la petición tiene éxito", () => {

@@ -21,7 +21,7 @@ interface OpportunityCardProps {
   opportunity: Opportunity;
 }
 
-export const OpportunityCard = ({opportunity} : OpportunityCardProps) => {
+const OpportunityCard = ({opportunity} : OpportunityCardProps) => {
     const progress = opportunity.target_amount_cents > 0 
         ? Math.min(100, (opportunity.committed_cents / opportunity.target_amount_cents) * 100) : 0;
     
@@ -92,3 +92,5 @@ export const OpportunityCard = ({opportunity} : OpportunityCardProps) => {
         </Card>
     );
 }
+
+export default OpportunityCard;

@@ -1,7 +1,8 @@
 import { Button } from "@heroui/react";
-import { OpportunityType, useOpportunityStore } from "../../store/useOpportunityStore";
+import { useOpportunityStore } from "../../store/useOpportunityStore";
 import { useEffect } from "react";
-import { OpportunityCard } from "./OpportunityCard";
+import OpportunityCard from "./OpportunityCard";
+import OpportunitiesSkeleton from "./OpportunitiesSkeleton";
 
 const Opportunities = () => {
   const { status, details, opportunities, fetchOpportunities } = useOpportunityStore();
@@ -17,7 +18,7 @@ const Opportunities = () => {
       </h1>
 
       {status === "loading" && (
-        <p className="text-muted">Cargando...</p>
+        <OpportunitiesSkeleton />
       )}
 
       {status === "error" && (
