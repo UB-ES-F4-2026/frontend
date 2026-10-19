@@ -9,7 +9,7 @@ import {
   Spinner,
   Surface,
 } from "@heroui/react";
-import { useHealthStore } from "../../store/useHeathStore";
+import { useHealthStore } from "../../store/useHealthStore";
 
 const AppTest = () => {
   const status = useHealthStore((state) => state.status);

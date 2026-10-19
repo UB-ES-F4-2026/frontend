@@ -117,7 +117,12 @@ const Register = () => {
                 </div>
               )}
               {/* Desactivem l’enviament i mostrem un indicador mentre esperem la resposta. */}
-              <Button type="submit" variant="primary" isDisabled={isSubmitting} className="w-full">
+              <Button 
+                type="submit" 
+                variant="primary" 
+                isDisabled={isSubmitting} 
+                className="w-full bg-warning text-warning-foreground hover:bg-warning/90"
+              >
                 {isSubmitting && <Spinner size="sm" color="current" />}
                 {isSubmitting ? "Creando cuenta…" : "Crear cuenta"}
               </Button>
