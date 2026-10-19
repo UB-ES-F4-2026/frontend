@@ -19,7 +19,7 @@ export default function HomePage() {
 
         <div className="flex flex-wrap gap-3">
           <NavLink
-            to="/oportunidades"
+            to="/opportunities"
             className={`${buttonVariants({ variant: "primary", size: "lg" })} bg-warning text-warning-foreground hover:bg-warning/90`}
           >
             Ver oportunidades

@@ -1,11 +1,12 @@
 import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import App from "../src/app/App";
 
-// Aïllem App de les pàgines: no executem formularis, stores ni peticions.
-// MemoryRouter es manté real com a suport per comprovar les rutes d’App.
+// Aïllem App de la capçalera i de les pàgines: aquí només es prova l’enrutat.
+vi.mock("../src/components/Header", () => ({
+  default: () => <header>Capçalera simulada</header>,
+}));
 vi.mock("../src/pages/home/HomePage", () => ({
   default: () => <h1>Pàgina simulada: inici</h1>,
 }));
@@ -18,8 +19,10 @@ vi.mock("../src/pages/auth/Login", () => ({
 vi.mock("../src/pages/test/AppTest", () => ({
   default: () => <h1>Pàgina simulada: connexió</h1>,
 }));
+vi.mock("../src/pages/opportunities/Opportunities", () => ({
+  default: () => <h1>Pàgina simulada: oportunitats</h1>,
+}));
 
-// Permet comprovar la ruta resultant sense obrir un navegador real.
 function CurrentPath() {
   return <output aria-label="Ruta actual">{useLocation().pathname}</output>;
 }
@@ -33,47 +36,31 @@ function renderApp(path = "/") {
   );
 }
 
-describe("App aïllat de les pàgines", () => {
-  it("permet navegar entre inici, registre i login", async () => {
-    const user = userEvent.setup();
-    renderApp();
-    const navigation = within(screen.getByRole("navigation", { name: "Navegación principal" }));
-
-    expect(screen.getByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
-
-    await user.click(navigation.getByRole("link", { name: "Crear cuenta" }));
-    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/register$/);
-    expect(screen.getByRole("heading", { name: "Pàgina simulada: registre" })).toBeInTheDocument();
-
-    await user.click(navigation.getByRole("link", { name: "Iniciar sesión" }));
-    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
-    expect(screen.getByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
-
-    await user.click(navigation.getByRole("link", { name: "Inicio" }));
-    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
-    expect(screen.getByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
-  });
-
+describe("enrutat d'App", () => {
   it.each([
-    ["/", "Inicio"],
-    ["/register", "Crear cuenta"],
-    ["/login", "Iniciar sesión"],
-  ])("indica només l’enllaç actiu a %s", (path, label) => {
+    ["/", "Pàgina simulada: inici"],
+    ["/register", "Pàgina simulada: registre"],
+    ["/login", "Pàgina simulada: login"],
+    ["/opportunities", "Pàgina simulada: oportunitats"],
+    ["/test", "Pàgina simulada: connexió"],
+  ])("mostra la pàgina corresponent a %s dins de main", (path, heading) => {
     renderApp(path);
-    const navigation = within(screen.getByRole("navigation", { name: "Navegación principal" }));
-    const activeLink = navigation.getByRole("link", { name: label });
 
-    expect(activeLink).toHaveAttribute("aria-current", "page");
-    for (const link of navigation.getAllByRole("link")) {
-      if (link !== activeLink) expect(link).not.toHaveAttribute("aria-current");
-    }
+    expect(within(screen.getByRole("main")).getByRole("heading", { name: heading })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(new RegExp(`^${path}$`));
   });
 
-  it("redirigeix una ruta desconeguda a l’inici", async () => {
-    renderApp("/ruta-inexistent");
+  it("mostra la capçalera fora de main, sigui quina sigui la ruta", () => {
+    renderApp("/login");
+
+    expect(screen.getByText("Capçalera simulada")).toBeInTheDocument();
+    expect(within(screen.getByRole("main")).queryByText("Capçalera simulada")).not.toBeInTheDocument();
+  });
+
+  it.each(["/ruta-inexistent", "/oportunidades"])("redirigeix %s a l’inici", async (path) => {
+    renderApp(path);
 
     expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
     expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
-    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("aria-current", "page");
   });
 });

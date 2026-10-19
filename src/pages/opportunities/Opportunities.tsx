@@ -3,23 +3,7 @@ import { OpportunityType, useOpportunityStore } from "../../store/useOpportunity
 import { useEffect } from "react";
 import { OpportunityCard } from "./OpportunityCard";
 
-const TYPE_LABEL: Record<OpportunityType, string> = {
-  real_estate: "Inmobiliario",
-  equity: "Startup",
-};
-
-const eur = new Intl.NumberFormat("es-ES", {
-  style: "currency",
-  currency: "EUR",
-  maximumFractionDigits: 0,
-});
-
-const formatCents = (cents: number) => eur.format(cents / 100);
-
-const daysLeft = (deadline: string) =>
-  Math.max(0, Math.ceil((new Date(deadline).getTime() - Date.now()) / 86_400_000));
-
-export const Opportunities = () => {
+const Opportunities = () => {
   const { status, details, opportunities, fetchOpportunities } = useOpportunityStore();
 
   useEffect(() => {
@@ -57,3 +41,5 @@ export const Opportunities = () => {
     </div>
   );
 }
+
+export default Opportunities;
