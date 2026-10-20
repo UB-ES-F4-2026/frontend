@@ -262,3 +262,69 @@ docker compose exec frontend npm run build
 Això comprova que el frontend compila i genera `dist/` dins del contenidor. No publica la web ni cal executar-ho cada vegada que deses un fitxer.
 
 La configuració de pgAdmin i les instruccions de migracions són al [README del backend](https://github.com/UB-ES-F4-2026/backend#readme).
+
+
+## 9. Tests del frontend
+
+Els tests s’agrupen a `tests/`, amb noms acabats en `.test.ts` o `.test.tsx`.
+Vitest els executa i React Testing Library permet provar els components
+mitjançant interaccions d’usuari. S’utilitza jsdom, un entorn de navegador
+simulat: no s’obre cap finestra del navegador.
+
+### Executar els tests
+
+Des de `frontend`, amb Node instal·lat:
+
+```bash
+npm ci
+npm test
+```
+
+`npm ci` instal·la les dependències del `package-lock.json`; cal executar-lo
+el primer cop i quan canviïn les dependències. Després, n’hi ha prou amb
+`npm test` per tornar a passar les proves.
+
+Amb Docker, des de `backend`, pots construir i executar només el servei de
+frontend, sense arrencar-ne les dependències. Cal tenir el `.env` de Compose
+configurat tal com s’explica a l’apartat 2.
+
+```bash
+docker compose build frontend
+docker compose run --rm --no-deps frontend npm test
+```
+
+Reconstrueix la imatge quan canviïn els tests, el codi o les dependències
+perquè el contenidor executi la versió actual.
+
+### Interpretar els resultats
+
+`npm test` executa totes les proves una vegada i acaba. La terminal mostra
+els fitxers i tests que passen (`passed`) o fallen (`failed`). Si una prova
+falla, indica el cas i la diferència entre el resultat esperat i l’obtingut,
+i el comandament retorna un codi d’error.
+
+Passar els tests no substitueix la revisió de QA. La compilació es comprova
+separadament amb `npm run build`. Per comprovar els tipus dels tests:
+
+```bash
+npx tsc -p tests/tsconfig.json
+```
+
+### Afegir tests
+
+- Crea un fitxer a `tests/` amb el nom del component o funcionalitat i el
+  sufix `.test.ts` (lògica) o `.test.tsx` (components amb JSX). La configuració
+  també detecta tests dins de subcarpetes.
+- Importa `describe`, `it`, `expect` i, si cal, `vi` des de `vitest`.
+  Per provar components, utilitza React Testing Library i `user-event`.
+- Comprova comportaments observables i resultats esperats. Per aïllar una
+  unitat, simula les seves dependències amb `vi.mock` quan sigui necessari.
+- Simula les peticions o respostes de l’API en aquestes proves perquè no
+  depenguin d’un backend, una base de dades ni comptes reals.
+- Mantén cada prova independent: restaura els mocks i reinicia els stores
+  que utilitzi. `tests/setup.ts` ja neteja els components renderitzats després
+  de cada prova i carrega els mètodes d’assert de `jest-dom`.
+
+La configuració d’execució és a `vitest.config.ts` i la de tipus a
+`tests/tsconfig.json`. Els tests es conserven al repositori juntament amb
+el codi i s’actualitzen quan canvia el comportament que comproven.
