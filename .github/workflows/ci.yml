@@ -1,0 +1,26 @@
+name: Frontend CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend-build:
+    name: Frontend Docker and Vite build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build frontend image with locked dependencies
+        run: docker build --tag frontend-ci .
+      - name: Compile production frontend
+        run: docker run --rm frontend-ci npm run build
