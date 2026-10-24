@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           docker run -d --name frontend-production-smoke -p 127.0.0.1:18080:8080 frontend-production-ci
           trap 'docker logs frontend-production-smoke; docker rm -f frontend-production-smoke' EXIT
-          curl --retry 15 --retry-connrefused --retry-delay 1 --fail http://127.0.0.1:18080/healthz
+          curl --retry 15 --retry-all-errors --retry-delay 1 --connect-timeout 2 --max-time 5 --fail http://127.0.0.1:18080/healthz
           curl --fail http://127.0.0.1:18080/ | grep -q '<div id="root"'
           curl --fail http://127.0.0.1:18080/login | grep -q '<div id="root"'
           # No backend is running: API must fail as API, never return SPA HTML.
