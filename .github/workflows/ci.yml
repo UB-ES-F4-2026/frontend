@@ -19,8 +19,63 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - name: Build frontend image with locked dependencies
         run: docker build --tag frontend-ci .
       - name: Compile production frontend
         run: docker run --rm frontend-ci npm run build
+      - name: Run all frontend tests
+        run: docker run --rm frontend-ci npm test
+      - name: Build production image
+        run: docker build --file Dockerfile.production --tag frontend-production-ci .
+      - name: Validate Caddy configuration
+        run: docker run --rm frontend-production-ci caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: Test static server and API routing
+        run: |
+          set -euo pipefail
+          docker run -d --name frontend-production-smoke -p 127.0.0.1:18080:8080 frontend-production-ci
+          trap 'docker logs frontend-production-smoke; docker rm -f frontend-production-smoke' EXIT
+          curl --retry 15 --retry-all-errors --retry-delay 1 --connect-timeout 2 --max-time 5 --fail http://127.0.0.1:18080/healthz
+          curl --fail http://127.0.0.1:18080/ | grep -q '<div id="root"'
+          curl --fail http://127.0.0.1:18080/login | grep -q '<div id="root"'
+          # No backend is running: API must fail as API, never return SPA HTML.
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/api/health)" = 502
+
+  required-checks:
+    name: Frontend required checks
+    if: always()
+    needs: frontend-build
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULT: ${{ needs.frontend-build.result }}
+        run: test "$RESULT" = success
+
+  publish:
+    name: Publish frontend image
+    needs: required-checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Build and publish versioned image
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:$GITHUB_SHA"
+          docker build --file Dockerfile.production --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag "$image" .
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$image"
+          docker pull "$image"
+          digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "$image")
+          printf '### Frontend image\nCommit: `%s`\n\n`%s`\n' "$GITHUB_SHA" "$digest" >> "$GITHUB_STEP_SUMMARY"
