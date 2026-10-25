@@ -15,7 +15,11 @@ An opportunity may represent a property, business, startup, or another investabl
 - Prioritize accessibility, transparency, and diversification.
     
 - Never imply guaranteed returns or risk-free investments.
-    
+
+Read `docs/PRODUCT.md` to understand the business model,
+investment mechanisms, domain concepts, and product scope.
+
+Use this document as the primary reference for product behavior.
 
 ## Language
 
@@ -149,3 +153,24 @@ Before introducing a new component or pattern:
     
 
 Prefer simple, consistent solutions over unnecessary visual or architectural complexity.
+
+## Project documentation
+
+### User stories
+
+- User stories are defined in `docs/user-stories/`.
+- User Story files follow the naming convention `USXX-Y.md`, where XX is a two-digit epic number and Y is the story number.
+- Before implementing or modifying a feature, read its corresponding User Story.
+- Treat the functional specification, acceptance criteria, and scope exclusions as the source of truth for feature requirements.
+- Do not introduce functionality explicitly excluded by the User Story unless requested.
+
+### Mockups
+
+- Mockups are stored in `docs/mockups/` and organized by User Story.
+- Each User Story maps to the mockup directory `docs/mockups/US<XX>-<Y>/`.
+- For example, `docs/user-stories/US01-6.md` maps to `docs/mockups/US01-6/`.
+- Mockups are HTML files (`*.html`) representing the intended interface.
+- Before implementing or modifying a UI feature, inspect all HTML mockups associated with its User Story.
+- Follow the mockups for visual structure, layout, and styling, while using the User Story to determine functional behavior.
+- Mockups are visual references, not production code. Implement the actual interface using the project's frontend stack.
+- If a mockup conflicts with the User Story's functional requirements, prioritize the User Story.
