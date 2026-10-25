@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@source "../*.html";
+@source "../US01-6/*.html";
+@theme {
+  --color-background: #F7F8FA;
+  --color-surface: #FFFFFF;
+  --color-ink: #101828;
+  --color-muted: #667085;
+  --color-line: #E4E7EC;
+  --color-brand: #172B4D;
+  --color-amber: #F5A623;
+  --color-soft-blue: #EAF0F7;
+}
+/* Static mockup only: a few native controls need browser-specific styling. */
+.navigation[hidden] { display: none; }
+@media (min-width: 960px) { .navigation[hidden] { display: flex !important; } }
+progress { appearance: none; }
+progress::-webkit-progress-bar { background: #E4E7EC; }
+progress::-webkit-progress-value { background: #F5A623; }
+progress::-moz-progress-bar { background: #F5A623; }
