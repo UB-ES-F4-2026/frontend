@@ -74,15 +74,13 @@ describe("registre de useAuthStore aïllat de l’API", () => {
 });
 
 describe("login de useAuthStore aïllat de l’API", () => {
-  const token = { access_token: "token-123", token_type: "bearer" };
 
-  it("normalitza el correu, obté el compte amb el token i inicia sessió", async () => {
-    post.mockResolvedValue(token);
-    get.mockResolvedValue(createdUser);
+  it("normalitza el correu i guarda l’usuari retornat pel login amb cookie", async () => {
+    post.mockResolvedValue(createdUser);
     const result = await useAuthStore.getState().login({ email: "  Gerard@Example.COM  ", password: credentials.password });
     expect(post).toHaveBeenCalledExactlyOnceWith("/auth/login", credentials);
-    expect(get).toHaveBeenCalledExactlyOnceWith("/auth/me", { headers: { Authorization: "Bearer token-123" } });
-    const account = { token: "token-123", ...createdUser };
+    expect(get).not.toHaveBeenCalled();
+    const account = createdUser;
     expect(result).toEqual(account);
     expect(useAuthStore.getState()).toMatchObject({ status: "success", details: "", active_account: account });
   });
@@ -93,7 +91,7 @@ describe("login de useAuthStore aïllat de l’API", () => {
     ["500", new ApiError("Server error", 500, null), "No se ha podido iniciar sesión."],
     ["xarxa", new TypeError("Failed to fetch"), "No se ha podido iniciar sesión."],
   ])("retorna null i un missatge comprensible davant un error %s", async (_label, error, message) => {
-    useAuthStore.setState({ active_account: { token: "antic", ...createdUser } });
+    useAuthStore.setState({ active_account: createdUser });
     post.mockRejectedValue(error);
     expect(await useAuthStore.getState().login(credentials)).toBeNull();
     expect(get).not.toHaveBeenCalled();
@@ -101,29 +99,20 @@ describe("login de useAuthStore aïllat de l’API", () => {
     expect(useAuthStore.getState().details).toContain(message);
   });
 
-  it("no inicia sessió si no es poden obtenir les dades del compte", async () => {
-    post.mockResolvedValue(token);
-    get.mockRejectedValue(new ApiError("Invalid or missing token", 401, null));
-    expect(await useAuthStore.getState().login(credentials)).toBeNull();
-    expect(useAuthStore.getState()).toMatchObject({ status: "error", active_account: null });
-    expect(useAuthStore.getState().details).toContain("No se ha podido iniciar sesión.");
-  });
-
   it("comença sense cap petició en curs", () => {
     expect(useAuthStore.getState()).toMatchObject({ status: "idle", details: "", active_account: null });
   });
 
   it("manté loading i evita una segona petició fins que acaba la primera", async () => {
-    let resolve!: (value: typeof token) => void;
+    let resolve!: (value: RegisteredUser) => void;
     post.mockReturnValue(new Promise((done) => { resolve = done; }));
-    get.mockResolvedValue(createdUser);
     useAuthStore.setState({ details: "Error anterior" });
     const pending = useAuthStore.getState().login(credentials);
     expect(useAuthStore.getState()).toMatchObject({ status: "loading", details: "" });
     expect(await useAuthStore.getState().login(credentials)).toBeNull();
     expect(post).toHaveBeenCalledOnce();
-    resolve(token);
-    expect(await pending).toEqual({ token: "token-123", ...createdUser });
+    resolve(createdUser);
+    expect(await pending).toEqual(createdUser);
     expect(useAuthStore.getState().status).toBe("success");
   });
 });
