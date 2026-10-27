@@ -2,12 +2,6 @@ import { create } from "zustand";
 import { fintechGet, fintechPost, ApiError } from "../service/api";
 import type { RequestStatus } from "../service/api";
 
-// Resposta de /auth/login.
-interface LoginToken {
-  access_token: string;
-  token_type: string;
-}
-
 export interface LoginPayload {
   email: string;
   password: string;
@@ -26,9 +20,8 @@ export interface RegisteredUser {
   created_at: string;
 }
 
-// Compte amb sessió iniciada: el token de sessió i les dades que retorna /auth/me.
-// Només viu en memòria: el backend espera el token a la capçalera Authorization.
-export type UserType = RegisteredUser & { token: string };
+// El token viu a la cookie HttpOnly; el store només conserva l’usuari.
+export type UserType = RegisteredUser;
 
 // Estat global visible per la resta de l'app
 interface AuthState {
@@ -42,8 +35,13 @@ interface AuthState {
   registrationDetails: string;
   register: (userData: RegisterPayload) => Promise<RegisteredUser | null>;
   resetRegistration: () => void;
-  logout: () => void;
+  clearSession: () => void;
+  restoreSession: (signal: AbortSignal) => Promise<void>;
+  logout: () => Promise<boolean>;
 }
+
+// Evita que una recuperació inicial tardana desfaci una acció de l’usuari.
+let sessionRevision = 0;
 
 const GENERIC_LOGIN_ERROR = "No se ha podido iniciar sesión. Inténtalo de nuevo en unos instantes.";
 
@@ -68,40 +66,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (credentials) => {
     // Com al registre, evitem peticions duplicades mentre n’hi ha una en curs.
     if (get().status === "loading") return null;
+    sessionRevision++;
     set({ status: "loading", details: "" });
 
-    let access_token: string;
     try {
-      ({ access_token } = await fintechPost<LoginToken>("/auth/login", {
+      const account = await fintechPost<RegisteredUser>("/auth/login", {
         email: credentials.email.trim().toLowerCase(),
         password: credentials.password,
-      }));
+      });
+      set({ status: "success", details: "", active_account: account });
+      return account;
     } catch (error: unknown) {
       set({ status: "error", details: getLoginErrorMessage(error), active_account: null });
       return null;
     }
+  },
 
+  restoreSession: async (signal) => {
+    const revision = sessionRevision;
     try {
-      // El login només retorna el token: demanem les dades del compte amb aquest token.
-      // Un error aquí no vol dir credencials incorrectes, així que mostrem el missatge genèric.
-      const user = await fintechGet<RegisteredUser>("/auth/me", {
-        headers: { Authorization: `Bearer ${access_token}` },
-      });
-      const account: UserType = { token: access_token, ...user };
-
-      set({
-        status: "success",
-        details: "",
-        active_account: account,
-      });
-      return account;
+      const account = await fintechGet<RegisteredUser>("/auth/me", { signal, skipSessionRedirect: true });
+      // Una resposta inicial tardana no ha de substituir un login o logout posterior.
+      if (!signal.aborted && revision === sessionRevision && !get().active_account) {
+        set({ status: "success", active_account: account });
+      }
     } catch {
-      set({
-        status: "error",
-        details: GENERIC_LOGIN_ERROR,
-        active_account: null,
-      });
-      return null;
+      // Sense cookie som visitants; un error de xarxa tampoc obliga a anar al login.
     }
   },
 
@@ -138,11 +128,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: () => {
+  clearSession: () => {
+    sessionRevision++;
     set({
       status: "idle",
       details: "",
       active_account: null,
     });
   },
+
+  logout: async () => {
+    if (get().status === "loading") return false;
+    sessionRevision++;
+    set({ status: "loading", details: "" });
+    try {
+      await fintechPost<void>("/auth/logout");
+    } catch (error) {
+      // Un 401 indica que ja no hi ha una sessió vàlida al servidor.
+      if (!(error instanceof ApiError && error.status === 401)) {
+        set({ status: "error", details: "No se ha podido cerrar sesión. Inténtalo de nuevo." });
+        return false;
+      }
+    }
+    get().clearSession();
+    return true;
+  },
+
 }));
