@@ -32,3 +32,9 @@ proyecto de rehabilitación destinado al alquiler. El ejemplo no proporciona
 coordenadas públicas y muestra «Mapa no disponible». No incluye acciones de
 inversión. Reutiliza los estilos compilados y el menú compartido; el resto de
 los estilos y la interacción de la galería están en el propio HTML.
+
+El selector telefónico de `US01-6/registre.html` contiene nombres de países en
+español y prefijos obtenidos de los [metadatos de libphonenumber-js](https://unpkg.com/libphonenumber-js/metadata.min.json).
+Las opciones están incluidas en el HTML y no requieren una petición de red ni
+una dependencia en tiempo de ejecución. La maqueta comprueba el formato y la
+longitud descritos en US01.6; no verifica la existencia o titularidad del número.
