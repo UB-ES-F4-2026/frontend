@@ -6,7 +6,7 @@ const desktop = matchMedia('(min-width:960px)');
 function menu(open, focus = false) {
   nav.hidden = !open;
   toggle.setAttribute('aria-expanded', String(open));
-  toggle.setAttribute('aria-label', open ? 'Tanca el menú' : 'Obre el menú');
+  toggle.setAttribute('aria-label', open ? 'Cerrar el menú' : 'Abrir el menú');
   if (focus) toggle.focus();
 }
 if (desktop.matches) nav.hidden = false;

@@ -1,15 +1,15 @@
-# Maquetes HTML
+# Maquetas HTML
 
-Les pàgines d'aquest directori són referències de presentació. `homepage.html`
-mostra la portada; `layout.html` és un wireframe estructural sense contingut de
-producte. Les altres pàgines enllacen a la portada i comparteixen la mateixa
-capçalera, els tokens i els estils.
+Las páginas de este directorio son referencias de presentación con contenido en
+español (`es`). `homepage.html` muestra la portada; `layout.html` es un esquema
+estructural sin contenido de producto. Las demás páginas enlazan a la portada y
+comparten la misma cabecera, los tokens y los estilos.
 
-Els HTML fan servir utilitats Tailwind CSS 4. El fitxer
-`assets/mockups.tailwind.css` declara els tokens i les poques regles necessàries
-per als controls nadius. `assets/mockups.generated.css` és el CSS compilat perquè
-les maquetes es puguin obrir directament des del disc. Per regenerar-lo amb el
-CLI de Tailwind 4, executeu des de l'arrel del repositori:
+Los HTML utilizan utilidades Tailwind CSS 4. El archivo
+`assets/mockups.tailwind.css` declara los tokens y las pocas reglas necesarias
+para los controles nativos. `assets/mockups.generated.css` es el CSS compilado
+para abrir las maquetas directamente desde el disco. Para regenerarlo con el
+CLI de Tailwind 4, ejecuta desde la raíz del repositorio:
 
 ```sh
 npm ci
@@ -18,5 +18,5 @@ npx --yes --package tailwindcss@4.3.3 --package @tailwindcss/cli@4.3.3 \
   -o docs/mockups/assets/mockups.generated.css --minify
 ```
 
-`assets/mockups.js` només activa el menú mòbil. Els formularis contenen
-JavaScript mínim de demostració i no envien dades.
+`assets/mockups.js` solo activa el menú móvil. Los formularios contienen
+JavaScript mínimo de demostración y no envían datos.

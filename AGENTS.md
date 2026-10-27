@@ -23,7 +23,7 @@ Use this document as the primary reference for product behavior.
 
 ## Language
 
-The default interface language is Catalan (`ca`); keep user-facing text consistent.
+The interface language is Spanish (`es`). Write all website text in Spanish, including navigation, labels, buttons, validation errors, notifications, loading states, and accessibility text. Translate user-facing copy from Catalan stories or mockups into Spanish when implementing it; keep terminology consistent.
 
 ## Design system
 
@@ -163,6 +163,66 @@ Prefer simple, consistent solutions over unnecessary visual or architectural com
 - Before implementing or modifying a feature, read its corresponding User Story.
 - Treat the functional specification, acceptance criteria, and scope exclusions as the source of truth for feature requirements.
 - Do not introduce functionality explicitly excluded by the User Story unless requested.
+
+### User story structure and template
+
+Use `docs/user-stories/US01-6.md` as the structural reference when generating future user stories. Write stories in Catalan and save them as `USXX-Y.md`; the title uses the identifier `USXX.Y`.
+
+Preserve the following order:
+
+1. **Title and user goal:** identify the story, then express the role, intent, and benefit with **COM**, **VULL**, and **PER AIXÍ**.
+2. **Especificació funcional:** separate visible content (`1.1. Contingut`) from behavior (`1.2. Comportament`). Use numbered behavior subsections for relevant topics such as navigation, validation, submission, and errors.
+3. **Requisits tècnics:** describe technical constraints and frontend/backend responsibilities required by the feature.
+4. **Abast i exclusions:** explicitly list excluded functionality. Optional future extensions belong here and remain independent backlog items.
+5. **Referències:** link related stories and applicable mobile and desktop mockups.
+6. **Criteris d'acceptació:** list observable, testable outcomes with sequential identifiers (`CA01`, `CA02`, etc.) covering the specified behavior.
+
+Adapt the topic-specific subsections to each story; do not copy registration-specific rules or invent requirements to fill the template.
+
+```markdown
+# USXX.Y: [Títol de la història]
+
+**COM** a [rol]
+
+**VULL** [objectiu]
+
+**PER AIXÍ** [benefici].
+
+## 1. Especificació funcional
+
+### 1.1. Contingut
+
+- [Informació, camps i accions visibles.]
+
+### 1.2. Comportament
+
+#### 1.2.1. [Tema funcional]
+
+- [Regles de navegació, validació o interacció.]
+
+#### 1.2.2. Errors
+
+- [Errors possibles, feedback i recuperació.]
+
+## 2. Requisits tècnics
+
+- [Restriccions tècniques i responsabilitats del frontend i del backend.]
+
+## 3. Abast i exclusions
+
+Queden fora de l'abast d'aquesta User Story:
+
+- [Funcionalitat exclosa.]
+
+## 4. Referències
+
+- [Històries relacionades i dissenys de referència.]
+
+## 5. Criteris d'acceptació
+
+- **CA01.** [Resultat observable i verificable.]
+- **CA02.** [Resultat observable i verificable.]
+```
 
 ### Mockups
 
