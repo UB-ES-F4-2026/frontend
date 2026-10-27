@@ -20,3 +20,8 @@ npx --yes --package tailwindcss@4.3.3 --package @tailwindcss/cli@4.3.3 \
 
 `assets/mockups.js` solo activa el menú móvil. Los formularios contienen
 JavaScript mínimo de demostración y no envían datos.
+
+`US01-8/tancar-sessio.html` muestra el menú de cuenta en escritorio y la acción
+de cierre de sesión en el menú móvil. Los controles de la maqueta permiten
+previsualizar el cierre correcto, un error de conexión y la sesión caducada.
+Estos estados son simulaciones visuales; no se realizan llamadas al servidor.

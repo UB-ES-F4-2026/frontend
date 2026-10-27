@@ -103,7 +103,7 @@ Follow a **mobile-first** approach while providing a fully optimized desktop e
 
 - **HeroUI first:** Prefer existing HeroUI components over custom implementations of standard UI elements.
     
-- **Tailwind:** Use utility classes for layouts, responsive behavior, and styling.
+- **Tailwind:** Use utility classes for layouts, responsive behavior, and styling. Avoid creating redundant custom CSS classes, use Tailwind whenever possible.
     
 - **Theming:** Keep Tailwind and HeroUI styles consistent through shared design tokens.
     
@@ -233,4 +233,6 @@ Queden fora de l'abast d'aquesta User Story:
 - Before implementing or modifying a UI feature, inspect all HTML mockups associated with its User Story.
 - Follow the mockups for visual structure, layout, and styling, while using the User Story to determine functional behavior.
 - Mockups are visual references, not production code. Implement the actual interface using the project's frontend stack.
+- Before reusing mockup styles, verify that every CSS variable resolves in the stylesheets actually loaded by the page, including compiled output. Keep shared theme tokens available to standalone mockup CSS.
+- Reuse production components and the established outline icon library when implementing mockups; do not copy demonstration scripts or preview controls into product flows.
 - If a mockup conflicts with the User Story's functional requirements, prioritize the User Story.

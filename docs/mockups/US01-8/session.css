@@ -1,0 +1,20 @@
+/* Supplement to the shared compiled Tailwind mockup stylesheet. */
+[hidden] { display: none !important; }
+.account-actions { border-top: 1px solid var(--color-line); padding-top: 1rem; }
+.account-desktop { display: none; position: relative; }
+.account-toggle, .logout-action, .preview-tools button, .preview-tools select { min-height: 48px; font: inherit; font-size: .875rem; cursor: pointer; }
+.account-toggle { display: flex; align-items: center; gap: .75rem; padding: .75rem 1.25rem; border: 1px solid var(--color-line); border-radius: 999px; color: var(--color-brand); background: var(--color-surface); font-weight: 600; }
+.account-menu { position: absolute; top: calc(100% + .5rem); right: 0; width: 208px; padding: .375rem; border: 1px solid var(--color-line); border-radius: .75rem; background: var(--color-surface); box-shadow: 0 8px 24px #10182814; z-index: 30; }
+.logout-action { display: flex; width: 100%; align-items: center; gap: .75rem; padding: .75rem 1rem; border: 0; border-radius: .5rem; color: var(--color-brand); background: var(--color-surface); text-align: left; }
+.logout-action:hover, .account-toggle:hover { background: var(--color-background); }
+button:focus-visible, select:focus-visible { outline: 3px solid var(--color-brand); outline-offset: 3px; }
+.session-notice { padding: 1rem max(20px, calc((100% - 1240px) / 2)); background: #ecfdf3; border-bottom: 1px solid #abefc6; color: #067647; font-size: .875rem; }
+.session-notice[data-tone="warning"] { background: #fffaeb; border-color: #fedf89; color: #93370d; }
+.preview-tools { border-top: 1px dashed var(--color-line); background: var(--color-background); padding: 1.25rem; font-size: .75rem; color: var(--color-muted); }
+.preview-tools > div { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; margin-top: .75rem; }
+.preview-tools select, .preview-tools button { max-width: 100%; padding: .5rem .75rem; border: 1px solid var(--color-line); border-radius: .5rem; background: var(--color-surface); color: var(--color-brand); }
+@media (min-width: 960px) {
+  .account-actions { border: 0; padding: 0; }
+  .account-desktop { display: block; }
+  .mobile-logout { display: none; }
+}
