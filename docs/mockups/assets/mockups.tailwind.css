@@ -2,6 +2,7 @@
 @source "../*.html";
 @source "../US01-6/*.html";
 @source "../US01-8/*.html";
+@source "../US02-2-1/*.html";
 /* Keep tokens available to standalone mockup CSS, even without a matching utility. */
 @theme static {
   --color-background: #F7F8FA;

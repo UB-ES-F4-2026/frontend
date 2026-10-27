@@ -25,3 +25,10 @@ JavaScript mínimo de demostración y no envían datos.
 de cierre de sesión en el menú móvil. Los controles de la maqueta permiten
 previsualizar el cierre correcto, un error de conexión y la sesión caducada.
 Estos estados son simulaciones visuales; no se realizan llamadas al servidor.
+
+`US02-2-1/detall.html` presenta un detalle inmobiliario de solo lectura, con
+datos ficticios, dos imágenes ilustrativas con miniaturas, navegación circular y ampliación y las cuatro fechas del
+proyecto de rehabilitación destinado al alquiler. El ejemplo no proporciona
+coordenadas públicas y muestra «Mapa no disponible». No incluye acciones de
+inversión. Reutiliza los estilos compilados y el menú compartido; el resto de
+los estilos y la interacción de la galería están en el propio HTML.

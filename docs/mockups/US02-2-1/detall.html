@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rehabilitación para alquiler · Grupo F4</title>
+<link rel="stylesheet" href="../assets/mockups.generated.css">
+<style>
+/* Static reference: shared product tokens, native controls and responsive composition. */
+[hidden] { display: none !important; }
+.detail-content { max-width: 1240px; margin: auto; padding: 20px 20px 56px; }
+.detail-heading { font-size: clamp(26px, 3.5vw, 36px); line-height: 1.2; }
+.detail-top { display: flex; flex-direction: column; gap: 24px; margin-top: 24px; }
+.hero-card { min-width: 0; }
+.hero-copy { padding-bottom: 20px; }
+.hero-copy h1 { margin-top: 0; }
+.hero-copy > p { line-height: 1.6; }
+.hero-intro { max-width: 65ch; font-size: 16px; color: var(--color-muted); margin-top: 8px; }
+.gallery-main { position: relative; min-width: 0; }
+.gallery-button { display: block; width: 100%; padding: 0; border: 0; background: var(--color-background); cursor: zoom-in; overflow: hidden; border-radius: 10px; }
+.gallery-button img { width: 100%; height: 280px; object-fit: cover; }
+.gallery-control { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: 1px solid var(--color-line); border-radius: 50%; background: var(--color-surface); color: var(--color-brand); font-size: 24px; cursor: pointer; }
+.gallery-main > .gallery-control { position: absolute; top: calc(50% - 22px); box-shadow: 0 2px 8px #10182814; }
+.gallery-main > [data-previous] { left: 12px; }
+.gallery-main > [data-next] { right: 12px; }
+.gallery-thumbs { display: flex; gap: 10px; margin-top: 10px; }
+.gallery-thumb { padding: 2px; border: 2px solid transparent; border-radius: 8px; cursor: pointer; background: var(--color-surface); }
+.gallery-thumb[aria-current="true"] { border-color: var(--color-amber); }
+.gallery-thumb img { width: 120px; height: 76px; object-fit: cover; border-radius: 4px; }
+.funding-card { padding: 28px; border: 1px solid var(--color-line); border-radius: 14px; background: var(--color-surface); min-width: 0; box-shadow: 0 4px 20px #10182805; }
+#funding-state { background: var(--color-background); border-color: var(--color-line); }
+#funding-state::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--color-amber); margin-right: 8px; }
+.funding-total { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px; }
+.funding-percent { color: var(--color-brand); font-size: 22px; font-weight: 600; white-space: nowrap; }
+.funding-card progress { height: 10px; border-radius: 999px; overflow: hidden; }
+.funding-dates { display: flex; flex-direction: column; gap: 28px; margin-top: 28px; padding-top: 28px; border-top: 1px solid var(--color-line); }
+.funding-dates > div { position: relative; padding-left: 34px; }
+.funding-timezone { display: block; margin-top: 4px; color: var(--color-muted); font-size: 12px; font-weight: 400; }
+.funding-dates svg { position: absolute; left: 0; top: 2px; color: var(--color-brand); }
+.risk-note { display: flex; align-items: flex-start; gap: 12px; margin: 28px 0 18px; padding: 18px 22px; border: 1px solid var(--color-line); border-radius: 12px; background: var(--color-surface); color: var(--color-muted); font-size: 14px; line-height: 1.7; }
+.risk-note svg { flex-shrink: 0; margin-top: 2px; color: var(--color-brand); }
+.detail-section { margin-top: 18px; padding: 24px; border: 1px solid var(--color-line); border-radius: 12px; background: var(--color-surface); min-width: 0; }
+.detail-section h2 { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; font-size: 20px; line-height: 1.35; }
+.detail-section h2 svg { flex-shrink: 0; }
+.detail-facts dt { color: var(--color-muted); font-size: 13px; line-height: 1.5; }
+.detail-facts dd { color: var(--color-brand); font-size: 16px; line-height: 1.5; font-weight: 600; margin-top: 4px; min-width: 0; overflow-wrap: break-word; }
+.promoter-body, .summary-body, .location-body { display: flex; flex-direction: column; gap: 24px; }
+.promoter-identity { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.promoter-identity > p { font-size: 16px; }
+.promoter-facts { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.promoter-facts > div { min-width: 0; }
+.summary-copy { min-width: 0; }
+.summary-copy p { max-width: 65ch; font-size: 15px; line-height: 1.8; color: var(--color-muted); }
+.summary-copy p + p { margin-top: 16px; }
+.summary-facts { display: flex; flex-direction: column; gap: 12px; }
+.summary-facts > div { background: var(--color-background); border-radius: 8px; padding: 16px; }
+.property-facts { display: flex; flex-direction: column; gap: 24px; }
+.property-facts > div { position: relative; padding-left: 40px; min-width: 0; }
+.property-facts svg { position: absolute; left: 0; top: 4px; color: var(--color-brand); }
+.detail-timeline { padding-left: 22px; margin: 24px 0 0 12px; border-left: 1px solid var(--color-line); }
+.detail-timeline li { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 0 0 26px 12px; }
+.detail-timeline li:last-child { padding-bottom: 0; }
+.detail-timeline li::before { content: ''; position: absolute; width: 12px; height: 12px; top: 5px; left: -29px; border-radius: 50%; border: 2px solid var(--color-brand); background: var(--color-surface); }
+.detail-timeline li[data-past="true"]::before { background: var(--color-brand); }
+.detail-timeline li > p { font-size: 14px; line-height: 1.6; }
+.detail-timeline time { font-size: 14px; line-height: 1.6; margin: 0; }
+.detail-timeline [data-date-state] { align-self: flex-start; margin: 0; padding: 3px 10px; border-radius: 999px; background: var(--color-background); white-space: nowrap; }
+.location-copy { min-width: 0; }
+.location-copy p { color: var(--color-muted); font-size: 14px; line-height: 1.6; }
+.map-empty { display: flex; justify-content: center; align-items: center; min-height: 144px; border: 1px solid var(--color-line); background: var(--color-background); border-radius: 8px; }
+.map-empty p { border: 1px solid var(--color-line); border-radius: 999px; background: var(--color-surface); padding: 10px 18px; font-size: 13px; color: var(--color-muted); }
+.dialog-navigation { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--color-brand); outline-offset: 4px; }
+#image-dialog { width: min(1100px, calc(100% - 32px)); max-height: calc(100svh - 32px); margin: auto; padding: 20px; border: 1px solid var(--color-line); border-radius: 12px; background: var(--color-surface); }
+#image-dialog::backdrop { background: rgb(16 24 40 / .8); }
+#image-dialog img { display: block; width: 100%; max-height: 70svh; object-fit: contain; }
+#image-dialog form { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+@media(min-width:640px) {
+  .detail-content { padding-left: 40px; padding-right: 40px; }
+  .property-facts { flex-direction: row; }
+  .property-facts > div { flex: 1; }
+  .property-facts > div + div { border-left: 1px solid var(--color-line); padding-left: 64px; }
+  .property-facts > div + div svg { left: 24px; }
+  .promoter-facts { flex-direction: row; gap: 24px; }
+  .promoter-facts > div { flex: 1; }
+}
+@media(min-width:960px) {
+  .detail-top { flex-direction: row; align-items: stretch; gap: 32px; }
+  .hero-card { flex: 1.9; }
+  .funding-card { flex: 1; margin-top: 0; }
+  .gallery-button img { height: 355px; }
+  .promoter-body { flex-direction: row; align-items: center; }
+  .promoter-identity { flex: 1.2; }
+  .promoter-facts { flex: 2; }
+  .promoter-facts > div { border-left: 1px solid var(--color-line); padding-left: 24px; }
+  .summary-body { flex-direction: row; gap: 40px; }
+  .summary-copy { flex: 1; }
+  .summary-facts { flex: 0 0 210px; }
+  .detail-timeline li { flex-direction: row; align-items: baseline; gap: 24px; }
+  .detail-timeline li > p { flex: 0 0 300px; }
+  .detail-timeline time { flex: 1; }
+  .detail-timeline [data-date-state] { align-self: auto; }
+  .location-body { flex-direction: row; align-items: center; }
+  .location-copy { flex: 1; }
+  .map-empty { flex: 2; }
+}
+</style>
+</head>
+<body class="min-w-70 bg-background font-sans text-ink antialiased">
+<a href="#contingut" class="fixed -top-24 left-3 z-50 bg-white p-3 focus:top-3">Saltar al contenido</a>
+<header class="border-b border-line bg-white"><div class="mx-auto w-[min(1240px,calc(100%-40px))] sm:w-[min(1240px,calc(100%-80px))] flex min-h-20 flex-wrap items-center justify-between gap-4 min-[960px]:min-h-[90px] min-[960px]:flex-nowrap min-[960px]:gap-14"><a class="flex items-center gap-2 text-xl font-extrabold tracking-tight text-brand" href="../homepage.html" aria-label="Grupo F4 · Inicio"><span class="grid size-8 place-items-center rounded-full bg-brand text-xs text-white">F4</span>Grupo F4</a><button type="button" class="menu-toggle grid size-11 place-content-center gap-1 rounded-full border border-line min-[960px]:hidden" aria-label="Abrir el menú" aria-expanded="false" aria-controls="navigation"><span class="block h-0.5 w-4.5 bg-brand"></span><span class="block h-0.5 w-4.5 bg-brand"></span><span class="block h-0.5 w-4.5 bg-brand"></span></button><nav id="navigation" class="navigation grid w-full gap-5 pb-6 min-[960px]:flex min-[960px]:w-auto min-[960px]:flex-1 min-[960px]:items-center min-[960px]:justify-between min-[960px]:pb-0" aria-label="Navegación principal" hidden><div class="grid gap-2 min-[960px]:flex min-[960px]:items-center min-[960px]:gap-8"><a class="min-h-11 py-3 text-sm text-muted" href="../homepage.html">Inicio</a><a class="min-h-11 py-3 text-sm text-muted" href="../oportunitats.html">Oportunidades</a></div><div class="grid gap-2 border-t border-line pt-4 sm:grid-cols-2 min-[960px]:flex min-[960px]:items-center min-[960px]:gap-3 min-[960px]:border-0 min-[960px]:pt-0"><a class="inline-flex min-h-12 items-center justify-center gap-3 rounded-full border border-line bg-white px-6 py-3 text-sm font-semibold text-brand hover:bg-background focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-brand" href="../inici-sessio.html">Iniciar sesión</a><a class="inline-flex min-h-12 items-center justify-center gap-3 rounded-full border border-amber bg-amber px-6 py-3 text-sm font-semibold text-ink hover:brightness-95 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-brand" href="../US01-6/registre.html">Registrarse</a></div></nav></div></header>
+<main id="contingut" tabindex="-1" class="detail-content">
+<a href="../oportunitats.html" class="inline-flex min-h-12 items-center gap-3 text-sm font-semibold text-brand underline underline-offset-4"><span aria-hidden="true">←</span> Volver a oportunidades</a>
+<section aria-labelledby="opportunity-title">
+
+<div class="detail-top">
+<div class="hero-card"><div class="hero-copy"><h1 id="opportunity-title" class="detail-heading mt-3 font-semibold tracking-tight text-brand">Rehabilitación para alquiler</h1>
+<p class="mt-3 text-sm text-muted">Barcelona, Barcelona, España</p>
+<p class="hero-intro">Rehabilitación de un edificio residencial con seis viviendas para destinar al alquiler.</p></div><figure>
+<div class="gallery-main">
+<button type="button" id="enlarge-image" class="gallery-button" aria-label="Ampliar imagen 1 de 2" aria-haspopup="dialog" aria-controls="image-dialog">
+<img id="property-image" src="../assets/ciutat-nick-kwan.jpg" alt="Vista aérea de edificios y calles de una ciudad" width="1800" height="1200">
+<span id="image-fallback" class="p-7 text-sm text-muted" hidden>Imagen no disponible</span>
+</button>
+<button type="button" class="gallery-control" data-previous aria-label="Imagen anterior">‹</button>
+<button type="button" class="gallery-control" data-next aria-label="Imagen siguiente">›</button>
+</div>
+<div class="gallery-thumbs" aria-label="Seleccionar imagen">
+<button type="button" class="gallery-thumb" data-index="0" aria-label="Mostrar imagen 1 de 2" aria-current="true"><img src="../assets/ciutat-nick-kwan.jpg" alt="" width="90" height="60"></button>
+<button type="button" class="gallery-thumb" data-index="1" aria-label="Mostrar imagen 2 de 2" aria-current="false"><img src="../assets/interior-illustrative.jpg" alt="" width="90" height="60"></button>
+</div>
+<figcaption class="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-muted"><span id="gallery-counter" aria-live="polite">Imagen 1 de 2</span><span id="image-hint">Selecciona la imagen para ampliarla</span></figcaption>
+</figure></div>
+<div class="funding-card">
+<span id="funding-state" class="inline-flex rounded-full border border-line bg-white px-4 py-2 text-xs font-semibold text-brand">En financiación</span>
+<p class="mt-5 text-xs text-muted">Capital comprometido</p>
+<div class="funding-total"><p class="mt-2 text-3xl font-semibold tracking-tight text-brand">135.000,00 €</p><span class="funding-percent">45,0 %</span></div>
+<div class="mt-5 flex flex-wrap items-center justify-between gap-3 text-xs text-muted"><span>Objetivo de financiación</span><strong class="text-brand">300.000,00 €</strong></div>
+<progress class="my-2 h-1.5 w-full" value="45" max="100" aria-label="Capital comprometido: 45,0 % del objetivo">45,0 %</progress>
+<p class="text-sm font-semibold text-brand">45,0 % del objetivo</p>
+<dl class="funding-dates">
+<div><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4m8-4v4M3 10h18M3 4h18v18H3Z"/></svg><dt class="text-xs text-muted">Fecha límite de financiación</dt><dd class="mt-2 text-sm font-semibold text-brand"><time datetime="2027-03-31T18:00:00+02:00">31 de marzo de 2027, 18:00<span class="funding-timezone">Hora de Madrid (UTC+02:00)</span></time></dd></div>
+<div><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8c5 0 8-1.3 8-3s-3-3-8-3-8 1.3-8 3 3 3 8 3ZM4 5v6c0 1.7 3 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3 3 8 3s8-1.3 8-3v-6"/></svg><dt class="text-xs text-muted">Aportación mínima</dt><dd class="mt-2 text-sm font-semibold text-brand">500,00 €</dd></div>
+</dl>
+</div>
+</div>
+<p class="risk-note"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v.01M12 11v6M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0"/></svg>El capital comprometido no equivale a dinero cobrado ni a participaciones adquiridas. Las inversiones conllevan riesgos y los rendimientos no están garantizados.</p>
+</section>
+<div class="detail-reading">
+<section class="detail-section" aria-labelledby="promoter-title">
+<h2 id="promoter-title" class="text-xl font-semibold text-brand"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5h16v16M2 21h20M8 9h2m4 0h2M8 13h2m4 0h2M10 21v-4h4v4"/></svg>Entidad promotora</h2>
+<div class="promoter-body"><div class="promoter-identity">
+<span class="grid size-11 shrink-0 place-content-center rounded-full border border-line bg-background" role="img" aria-label="Imagen genérica de organización">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M3 21h18M9 7h1m4 0h1M9 11h1m4 0h1M10 21v-5h4v5"/></svg>
+</span><p class="font-semibold text-brand">Horizonte Urbano, S. L.</p>
+</div>
+<dl class="detail-facts promoter-facts"><div><dt>Proyectos publicados</dt><dd>3</dd></div><div><dt>Años de experiencia</dt><dd>8<span class="mt-2 block text-xs font-normal text-muted">Dato declarado por la entidad</span></dd></div><div><dt>Ubicación</dt><dd>Barcelona, Barcelona, España</dd></div></dl></div>
+</section>
+<section class="detail-section" aria-labelledby="summary-title">
+<h2 id="summary-title" class="text-xl font-semibold text-brand"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6v20h12V6l-4-4ZM14 2v5h5M9 12h6M9 16h6"/></svg>Resumen del proyecto</h2>
+<div class="summary-body"><div class="summary-copy"><p class="mt-5 text-sm leading-relaxed text-muted">El proyecto propone rehabilitar un edificio residencial para destinar sus seis viviendas al alquiler. La intervención prevista comprende la renovación de las instalaciones, la adecuación de las viviendas y la mejora de las zonas comunes.</p>
+<p class="mt-3 text-sm leading-relaxed text-muted">La finalidad del capital objetivo es financiar la rehabilitación descrita. Las fechas de finalización de las obras y de inicio del alquiler son estimaciones; no acreditan que estas actividades hayan comenzado o terminado.</p>
+</div><dl class="detail-facts summary-facts"><div><dt>Finalidad</dt><dd>Rehabilitación</dd></div><div><dt>Uso previsto</dt><dd>Alquiler</dd></div></dl></div>
+</section>
+<section class="detail-section" aria-labelledby="features-title">
+<h2 id="features-title" class="text-xl font-semibold text-brand"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V7h7v14M11 21V3h9v18M2 21h20M7 11v2m0 3v2M15 7h1m-1 4h1m-1 4h1"/></svg>Características del inmueble</h2>
+<dl class="detail-facts property-facts"><div><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H3v5m0-5 6 6m7-6h5v5m0-5-6 6M3 16v5h5m-5 0 6-6m12 1v5h-5m5 0-6-6"/></svg><dt>Superficie</dt><dd>480 m²</dd></div><div><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/></svg><dt>Viviendas previstas</dt><dd>6</dd></div></dl>
+</section>
+<section class="detail-section" aria-labelledby="dates-title">
+<h2 id="dates-title" class="text-xl font-semibold text-brand"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4m8-4v4M3 10h18M3 4h18v18H3Z"/></svg>Fechas del proyecto</h2>
+<ol class="detail-timeline">
+<li data-date="2026-10-01T10:00:00+02:00"><p class="text-sm font-semibold text-brand">Publicación</p><time class="mt-2 block text-sm text-muted" datetime="2026-10-01T10:00:00+02:00">1 de octubre de 2026</time><span class="mt-2 block text-xs text-muted" data-date-state></span></li>
+<li data-date="2027-03-31T18:00:00+02:00"><p class="text-sm font-semibold text-brand">Fin de financiación</p><time class="mt-2 block text-sm text-muted" datetime="2027-03-31T18:00:00+02:00">31 de marzo de 2027</time><span class="mt-2 block text-xs text-muted" data-date-state></span></li>
+<li data-date="2027-11-30T18:00:00+01:00"><p class="text-sm font-semibold text-brand">Finalización estimada de las obras</p><time class="mt-2 block text-sm text-muted" datetime="2027-11-30T18:00:00+01:00">30 de noviembre de 2027</time><span class="mt-2 block text-xs text-muted" data-date-state></span></li>
+<li data-date="2028-01-15T10:00:00+01:00"><p class="text-sm font-semibold text-brand">Inicio estimado del alquiler</p><time class="mt-2 block text-sm text-muted" datetime="2028-01-15T10:00:00+01:00">15 de enero de 2028</time><span class="mt-2 block text-xs text-muted" data-date-state></span></li>
+</ol>
+</section>
+<section class="detail-section" aria-labelledby="location-title">
+<div class="location-body"><div class="location-copy"><h2 id="location-title" class="text-xl font-semibold text-brand"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0ZM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6"/></svg>Ubicación aproximada</h2><p>Barcelona, Barcelona, España</p></div><div class="map-empty"><p>Mapa no disponible</p></div></div>
+</section>
+</div></main>
+<dialog id="image-dialog" aria-label="Imagen ampliada del inmueble">
+<form method="dialog"><button autofocus class="inline-flex min-h-12 items-center justify-center rounded-full border border-line bg-white px-6 py-3 text-sm font-semibold text-brand">Cerrar</button></form>
+<img id="dialog-image" src="../assets/ciutat-nick-kwan.jpg" alt="Vista aérea de edificios y calles de una ciudad" width="1800" height="1200">
+<div class="dialog-navigation"><button type="button" class="gallery-control" data-previous aria-label="Imagen anterior">‹</button><p id="dialog-counter" class="text-xs text-muted" aria-live="polite">Imagen 1 de 2</p><button type="button" class="gallery-control" data-next aria-label="Imagen siguiente">›</button></div>
+</dialog>
+<footer class="border-t border-line bg-white"><div class="mx-auto w-[min(1240px,calc(100%-40px))] sm:w-[min(1240px,calc(100%-80px))] flex flex-wrap items-center justify-between gap-4 py-6 text-xs text-muted"><span>Grupo F4 · Inversión colectiva</span><span><a class="underline underline-offset-4" href="../assets/README.md">Créditos fotográficos</a></span></div></footer>
+<script src="../assets/mockups.js"></script>
+<script>
+// Presentation only. No requests, authentication or investment operations.
+const images = [
+  { src: '../assets/ciutat-nick-kwan.jpg', alt: 'Vista aérea de edificios y calles de una ciudad' },
+  { src: '../assets/interior-illustrative.jpg', alt: 'Salón luminoso con sofá y grandes ventanas' }
+];
+let selectedImage = 0;
+const failedImages = new Set();
+const imageButton = document.querySelector('#enlarge-image');
+const imageDialog = document.querySelector('#image-dialog');
+const propertyImage = document.querySelector('#property-image');
+const dialogImage = document.querySelector('#dialog-image');
+function renderGallery() {
+  const image = images[selectedImage];
+  const failed = failedImages.has(selectedImage);
+  propertyImage.hidden = failed;
+  dialogImage.hidden = failed;
+  document.querySelector('#image-fallback').hidden = !failed;
+  document.querySelector('#image-hint').hidden = failed;
+  imageButton.disabled = failed;
+  imageButton.setAttribute('aria-label', failed ? 'Imagen no disponible' : `Ampliar imagen ${selectedImage + 1} de ${images.length}`);
+  [propertyImage, dialogImage].forEach(element => { element.alt = image.alt; if (element.getAttribute('src') !== image.src) element.src = image.src; });
+  document.querySelector('#gallery-counter').textContent = `Imagen ${selectedImage + 1} de ${images.length}`;
+  document.querySelector('#dialog-counter').textContent = failed ? `Imagen ${selectedImage + 1} de ${images.length} · Imagen no disponible` : `Imagen ${selectedImage + 1} de ${images.length}`;
+  document.querySelectorAll('[data-index]').forEach(button => button.setAttribute('aria-current', String(Number(button.dataset.index) === selectedImage)));
+}
+function selectImage(index) { selectedImage = (index + images.length) % images.length; renderGallery(); }
+document.querySelectorAll('[data-previous]').forEach(button => button.addEventListener('click', () => selectImage(selectedImage - 1)));
+document.querySelectorAll('[data-next]').forEach(button => button.addEventListener('click', () => selectImage(selectedImage + 1)));
+document.querySelectorAll('[data-index]').forEach(button => button.addEventListener('click', () => selectImage(Number(button.dataset.index))));
+imageButton.addEventListener('click', () => imageDialog.showModal());
+imageDialog.addEventListener('close', () => {
+  if (imageButton.disabled) document.querySelector(`[data-index="${selectedImage}"]`).focus();
+  else imageButton.focus();
+});
+imageDialog.addEventListener('keydown', event => {
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    event.preventDefault(); selectImage(selectedImage + (event.key === 'ArrowRight' ? 1 : -1));
+  }
+});
+[propertyImage, dialogImage].forEach(element => element.addEventListener('error', () => { failedImages.add(selectedImage); renderGallery(); }));
+renderGallery();
+if (propertyImage.complete && !propertyImage.naturalWidth) { failedImages.add(selectedImage); renderGallery(); }
+function updateDates() {
+  const now = Date.now();
+  document.querySelectorAll('[data-date]').forEach(item => {
+    const past = new Date(item.dataset.date).getTime() <= now;
+    item.dataset.past = String(past);
+    item.querySelector('[data-date-state]').textContent = past ? 'Fecha pasada' : 'Fecha futura';
+  });
+  document.querySelector('#funding-state').textContent = now >= new Date('2027-03-31T18:00:00+02:00').getTime() ? 'Plazo finalizado' : 'En financiación';
+}
+updateDates();
+setInterval(updateDates, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) updateDates(); });
+</script>
+</body>
+</html>
