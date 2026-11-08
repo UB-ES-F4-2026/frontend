@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Register from "../src/pages/auth/Register";
 import type { useAuthStore } from "../src/store/useAuthStore";
@@ -22,8 +22,19 @@ const personalData = { firstName: "María", lastName: "Prueba-López", email: "g
 const terms = () => screen.getByRole("checkbox", { name: "Acepto las condiciones de uso." });
 const privacy = () => screen.getByRole("checkbox", { name: "He leído la política de privacidad." });
 
+function RegisterTestApp() {
+  return (
+    <MemoryRouter initialEntries={["/register"]}>
+      <Routes>
+        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<h1>Inicio de sesión simulado</h1>} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
 function renderRegister() {
-  return render(<MemoryRouter><Register /></MemoryRouter>);
+  return render(<RegisterTestApp />);
 }
 
 async function fillPersonalData(user: ReturnType<typeof userEvent.setup>, email = personalData.email) {
@@ -315,7 +326,7 @@ describe("Register: comportament existent amb el store simulat", () => {
     await goToAccess(user);
     await fillAccess(user);
     state.registrationStatus = "loading";
-    view.rerender(<MemoryRouter><Register /></MemoryRouter>);
+    view.rerender(<RegisterTestApp />);
     for (const label of ["Contraseña", "Confirma la contraseña"]) {
       expect(screen.getByLabelText(label, { exact: true })).toBeDisabled();
     }
@@ -334,7 +345,7 @@ describe("Register: comportament existent amb el store simulat", () => {
     await submit("password123");
     state.registrationStatus = "error";
     state.registrationDetails = "Ya existe una cuenta con este correo electrónico.";
-    view.rerender(<MemoryRouter><Register /></MemoryRouter>);
+    view.rerender(<RegisterTestApp />);
     expect(screen.getByRole("alert")).toHaveTextContent(state.registrationDetails);
     expect(screen.getByRole("alert")).not.toHaveTextContent("password123");
     expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveValue("password123");
@@ -346,17 +357,31 @@ describe("Register: comportament existent amb el store simulat", () => {
     expect(screen.getByLabelText("Nombre", { exact: true })).toHaveValue(personalData.firstName);
     expect(screen.getByLabelText("Apellidos")).toHaveValue(personalData.lastName);
     expect(screen.getByLabelText("Número", { exact: true })).toHaveValue(personalData.phone);
-    expect(screen.queryByText("Cuenta creada")).not.toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Crear mi cuenta" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Inicio de sesión simulado" })).not.toBeInTheDocument();
   });
 
-  it("mostra la confirmació amb enllaç al login segons el contracte actual", async () => {
+  it("redirigeix a /login quan el registre retorna l’usuari creat", async () => {
     state.register.mockResolvedValue({ id: 1, email: personalData.email, created_at: "2026-10-17T10:00:00Z" });
     renderRegister();
     await submit("password123");
-    expect(await screen.findByText("Cuenta creada")).toBeInTheDocument();
-    expect(screen.getByText(/Tu cuenta con el correo gerard@example.com/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Inicio de sesión simulado" })).toBeInTheDocument();
     expect(screen.queryByRole("form")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ir al inicio de sesión" })).toHaveAttribute("href", "/login");
+    expect(screen.queryByText("Cuenta creada")).not.toBeInTheDocument();
     expect(state.register).toHaveBeenCalledOnce();
+  });
+
+  it("espera la confirmació del servidor abans de redirigir al login", async () => {
+    let finish!: (user: Awaited<ReturnType<AuthState["register"]>>) => void;
+    state.register.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    renderRegister();
+    await submit("password123");
+    expect(state.register).toHaveBeenCalledOnce();
+    expect(screen.getByRole("form", { name: "Crear mi cuenta" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Inicio de sesión simulado" })).not.toBeInTheDocument();
+    await act(async () => {
+      finish({ id: 1, email: personalData.email, created_at: "2026-10-17T10:00:00Z" });
+    });
+    expect(await screen.findByRole("heading", { name: "Inicio de sesión simulado" })).toBeInTheDocument();
   });
 });
