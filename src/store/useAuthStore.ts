@@ -16,6 +16,9 @@ export interface LoginPayload {
 // Contracte del registre actual: només correu i contrasenya.
 export interface RegisterPayload {
   email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
   password: string;
 }
 
@@ -65,7 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   registrationStatus: "idle",
   registrationDetails: "",
 
-  login: async (credentials) => {
+  login: async (credentials: LoginPayload) => {
     // Com al registre, evitem peticions duplicades mentre n’hi ha una en curs.
     if (get().status === "loading") return null;
     set({ status: "loading", details: "" });
@@ -105,7 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (userData) => {
+  register: async (userData: RegisterPayload) => {
     // Zustand actualitza l’estat immediatament: evitem peticions duplicades.
     if (get().registrationStatus === "loading") return null;
     set({ registrationStatus: "loading", registrationDetails: "" });
@@ -113,6 +116,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const newUser = await fintechPost<RegisteredUser>("/auth/register", {
         email: userData.email.trim().toLowerCase(),
+        first_name: userData.first_name,
+        last_name: userData.last_name,
+        phone: userData.phone,
         password: userData.password,
       });
 
