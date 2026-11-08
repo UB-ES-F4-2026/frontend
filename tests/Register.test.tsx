@@ -85,6 +85,25 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     expect(screen.getByRole("link", { name: "Inicia sesión" })).toHaveAttribute("href", "/login");
   });
 
+  it("permet corregir un telèfon invàlid i continuar sense duplicar el prefix", async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    await fillPersonalData(user);
+    const phone = screen.getByLabelText("Número", { exact: true });
+    await user.clear(phone);
+    await user.type(phone, "61234567");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(phone).toHaveAttribute("aria-invalid", "true");
+    await user.type(phone, "8");
+    expect(phone).toHaveAttribute("aria-invalid", "false");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await fillAccess(user);
+    await user.click(terms());
+    await user.click(privacy());
+    await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
+    expect(state.register).toHaveBeenCalledWith(expect.objectContaining({ phone: "+34612345678" }));
+  });
+
   it("no avança amb els camps obligatoris buits", async () => {
     renderRegister();
     await userEvent.setup().click(screen.getByRole("button", { name: "Continuar" }));
@@ -305,7 +324,7 @@ describe("Register: comportament existent amb el store simulat", () => {
   it.each(["12345678", "😀".repeat(18)])("envia una contrasenya al límit del contracte actual: %s", async (password) => {
     renderRegister();
     await submit(password);
-    expect(state.register).toHaveBeenCalledExactlyOnceWith({ email: personalData.email, password });
+    expect(state.register).toHaveBeenCalledExactlyOnceWith({ email: personalData.email, first_name: personalData.firstName, last_name: personalData.lastName, phone: "+34612345678", password });
   });
 
   it("no envia contrasenyes amb confirmació diferent", async () => {

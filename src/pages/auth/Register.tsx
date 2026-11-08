@@ -16,6 +16,7 @@ const Register = () => {
   const [lastName, setLastName] = useState("");
   const [phoneCountry, setPhoneCountry] = useState("ES");
   const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -47,6 +48,29 @@ const Register = () => {
     setValidationError("");
     resetRegistration();
 
+    const country = phoneCountries.find((country) => country.code === phoneCountry);
+    const compactPhone = phone.replace(/\s/g, "");
+    let normalizedPhone = "";
+    let phoneMessage = "";
+    if (!country || !/^\+?[0-9]+$/.test(compactPhone)) {
+      phoneMessage = "Introduce un número válido, solo con dígitos y espacios.";
+    } else if (compactPhone.startsWith("+") && !compactPhone.startsWith(country.prefix)) {
+      phoneMessage = "El prefijo del número debe coincidir con el país seleccionado.";
+    } else {
+      const nationalNumber = compactPhone.startsWith("+") ? compactPhone.slice(country.prefix.length) : compactPhone;
+      normalizedPhone = `${country.prefix}${nationalNumber}`;
+      if (!nationalNumber || !/^\+[1-9][0-9]{1,14}$/.test(normalizedPhone)) {
+        phoneMessage = "Introduce un número válido de hasta 15 dígitos, incluido el prefijo.";
+      } else if (country.code === "ES" && nationalNumber.length !== 9) {
+        phoneMessage = "El número de España debe tener exactamente 9 dígitos sin el prefijo.";
+      }
+    }
+    setPhoneError(phoneMessage);
+    if (phoneMessage) {
+      setStep(1);
+      return;
+    }
+
     // Avançar de pas no envia cap petició al backend.
     if (step === 1) {
       setStep(2);
@@ -71,7 +95,7 @@ const Register = () => {
     }
 
     // El store crida el servei d’API i retorna l’usuari creat o null si falla.
-    const user = await register({ email, password });
+    const user = await register({ email, password, first_name: firstName.trim(), last_name: lastName.trim(), phone: normalizedPhone });
     // Només sortim del formulari quan el servidor confirma la creació del compte.
     if (user) navigate("/login", { replace: true });
   };
@@ -152,7 +176,10 @@ const Register = () => {
                   <fieldset className="min-w-0">
                     <legend className="sr-only">Número de teléfono</legend>
                     <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
-                      <Select name="phone_country" value={phoneCountry} onChange={(value) => setPhoneCountry(String(value))}
+                      <Select name="phone_country" value={phoneCountry} onChange={(value) => {
+                        setPhoneCountry(String(value));
+                        setPhoneError("");
+                      }}
                         isRequired isDisabled={isSubmitting} className="min-w-0">
                         <Label className="text-sm font-medium text-foreground/90">País y prefijo</Label>
                         <Select.Trigger className="h-10 min-h-10 w-full min-w-0 rounded-xl border border-foreground/15 bg-background px-3 text-foreground shadow-none focus-visible:outline-warning">
@@ -169,7 +196,7 @@ const Register = () => {
                           </ListBox>
                         </Select.Popover>
                       </Select>
-                      <TextField name="phone" type="tel" isRequired isDisabled={isSubmitting} className="min-w-0">
+                      <TextField name="phone" type="tel" isInvalid={Boolean(phoneError)} isRequired isDisabled={isSubmitting} className="min-w-0">
                         <Label className="text-sm font-medium text-foreground/90">Número</Label>
                         <Input
                           className="h-10 w-full min-w-0 rounded-xl border border-foreground/15 bg-background px-4 text-foreground shadow-none placeholder:text-foreground/40 focus:border-warning focus:ring-2 focus:ring-warning/30"
@@ -178,12 +205,17 @@ const Register = () => {
                           autoComplete="tel-national"
                           placeholder={phoneCountry === "ES" ? "612 345 678" : "Número sin prefijo"}
                           required
-                          aria-describedby="register-phone-help"
+                          aria-describedby={phoneError ? "register-phone-help register-phone-error" : "register-phone-help"}
+                          aria-invalid={Boolean(phoneError)}
                           value={phone}
-                          onChange={(event) => setPhone(event.target.value)}
+                          onChange={(event) => {
+                            setPhone(event.target.value);
+                            setPhoneError("");
+                          }}
                         />
                       </TextField>
                     </div>
+                    {phoneError && <p id="register-phone-error" role="alert" className="mt-2 text-xs text-danger">{phoneError}</p>}
                     <p id="register-phone-help" className="mt-2 text-xs leading-relaxed text-foreground/65">
                       Introduce el número sin el prefijo internacional.
                     </p>
