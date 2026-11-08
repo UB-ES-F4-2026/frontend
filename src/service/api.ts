@@ -1,5 +1,8 @@
 const API_BASE_URL = "/api";
 
+// React escolta aquest avís; el servei no depèn del store ni del router.
+export const SESSION_EXPIRED = "auth:session-expired";
+
 export type RequestStatus = "loading" | "success" | "error";
 
 export type QueryParams = Record<
@@ -8,6 +11,8 @@ export type QueryParams = Record<
 >;
 
 export interface RequestOptions {
+  // La comprovació inicial de sessió no ha de redirigir els visitants.
+  skipSessionRedirect?: boolean;
   params?: QueryParams;
   headers?: HeadersInit;
   signal?: AbortSignal;
@@ -64,10 +69,13 @@ async function request<T>(
     headers,
     body: requestBody,
     signal: options.signal,
-    // NOTE: Podria ser necessari canviar aquesta línia de sota a "include" 
-    // si el frontend i l'api comencen a operar sota dominis diferents.
-    credentials: "same-origin", 
+    credentials: "include",
   });
+
+  // Un 401 del login és un error de credencials, no una sessió caducada.
+  if (response.status === 401 && path.replace(/^\//, "") !== "auth/login" && !options.skipSessionRedirect) {
+    window.dispatchEvent(new Event(SESSION_EXPIRED));
+  }
 
   const contentType = response.headers.get("content-type") ?? "";
   let data: unknown;

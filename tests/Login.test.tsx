@@ -49,7 +49,7 @@ beforeEach(() => {
 
 describe("Login aïllat del store", () => {
   it("envia les credencials i redirigeix a l’inici quan s’inicia la sessió", async () => {
-    state.login.mockResolvedValue({ token: "token-123", id: 1, email: "gerard@example.com", created_at: "2026-10-17T10:00:00Z" });
+    state.login.mockResolvedValue({ id: 1, email: "gerard@example.com", created_at: "2026-10-17T10:00:00Z" });
     renderLogin();
     await submit();
     expect(state.login).toHaveBeenCalledExactlyOnceWith({ email: "gerard@example.com", password: "password123" });
@@ -106,7 +106,7 @@ describe("Login aïllat del store", () => {
   });
 
   it("no mostra el formulari si la sessió ja està iniciada", () => {
-    state.active_account = { token: "token-123", id: 1, email: "gerard@example.com", created_at: "2026-10-17T10:00:00Z" };
+    state.active_account = { id: 1, email: "gerard@example.com", created_at: "2026-10-17T10:00:00Z" };
     renderLogin();
     expect(screen.queryByRole("form")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Ya has iniciado sesión con el correo gerard@example.com.");
