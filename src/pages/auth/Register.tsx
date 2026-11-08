@@ -22,7 +22,6 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [readPrivacy, setReadPrivacy] = useState(false);
-  const [documentNotice, setDocumentNotice] = useState("");
   // La pàgina conserva les dades del formulari; el store gestiona la petició.
   const [validationError, setValidationError] = useState("");
   const [registeredEmail, setRegisteredEmail] = useState("");
@@ -253,7 +252,7 @@ const Register = () => {
                         )}
                       </TextField>
                     ))}
-                    {/* Les caselles conserven el valor; els documents encara són provisionals. */}
+                    {/* Els documents s’obren en una altra pestanya per conservar les dades del formulari. */}
                     <div className="space-y-2 text-xs leading-relaxed text-white/80">
                       <div className="flex items-start gap-3">
                         <input id="register-terms" type="checkbox" required disabled={isSubmitting}
@@ -261,8 +260,11 @@ const Register = () => {
                           checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
                         <div>
                           <label htmlFor="register-terms">Acepto las condiciones de uso.</label>{" "}
-                          <button type="button" className="text-warning underline underline-offset-4 hover:text-warning/80"
-                            onClick={() => setDocumentNotice("Condiciones de uso")}>Consultar condiciones</button>
+                          <a href="/legal/condiciones-de-uso" target="_blank" rel="noopener noreferrer"
+                            aria-label="Consultar condiciones (se abre en una pestaña nueva)"
+                            className="text-warning underline underline-offset-4 hover:text-warning/80 focus-visible:outline-2 focus-visible:outline-warning">
+                            Consultar condiciones<span className="sr-only"> (se abre en una pestaña nueva)</span>
+                          </a>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
@@ -271,17 +273,15 @@ const Register = () => {
                           checked={readPrivacy} onChange={(event) => setReadPrivacy(event.target.checked)} />
                         <div>
                           <label htmlFor="register-privacy">He leído la política de privacidad.</label>{" "}
-                          <button type="button" className="text-warning underline underline-offset-4 hover:text-warning/80"
-                            onClick={() => setDocumentNotice("Política de privacidad")}>Consultar privacidad</button>
+                          <a href="/legal/politica-de-privacidad" target="_blank" rel="noopener noreferrer"
+                            aria-label="Consultar privacidad (se abre en una pestaña nueva)"
+                            className="text-warning underline underline-offset-4 hover:text-warning/80 focus-visible:outline-2 focus-visible:outline-warning">
+                            Consultar privacidad<span className="sr-only"> (se abre en una pestaña nueva)</span>
+                          </a>
                         </div>
                       </div>
                     </div>
-                    {documentNotice && (
-                      <div role="status" className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm">
-                        <p className="font-semibold text-warning">{documentNotice}: documento en preparación</p>
-                        <p className="mt-1 text-white/80">Estamos trabajando en este documento. Estará disponible próximamente.</p>
-                      </div>
-                    )}
+                    <p className="text-xs text-white/65">Documentos en borrador, pendientes de revisión.</p>
                   </>
                 )}
                 {/* role="alert" anuncia els errors a les tecnologies d’assistència. */}
@@ -304,7 +304,6 @@ const Register = () => {
                     onPress={() => {
                       setValidationError("");
                       resetRegistration();
-                      setDocumentNotice("");
                       setStep(1);
                     }}
                   >
