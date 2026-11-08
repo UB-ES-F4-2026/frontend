@@ -8,7 +8,7 @@
 .logout-action { display: flex; width: 100%; align-items: center; gap: .75rem; padding: .75rem 1rem; border: 0; border-radius: .5rem; color: var(--color-brand); background: var(--color-surface); text-align: left; }
 .logout-action:hover, .account-toggle:hover { background: var(--color-background); }
 button:focus-visible, select:focus-visible { outline: 3px solid var(--color-brand); outline-offset: 3px; }
-.session-notice { padding: 1rem max(20px, calc((100% - 1240px) / 2)); background: #ecfdf3; border-bottom: 1px solid #abefc6; color: #067647; font-size: .875rem; }
+.session-notice { padding: 1rem max(24px, calc((100% - 1120px) / 2)); background: #ecfdf3; border-bottom: 1px solid #abefc6; color: #067647; font-size: .875rem; }
 .session-notice[data-tone="warning"] { background: #fffaeb; border-color: #fedf89; color: #93370d; }
 .preview-tools { border-top: 1px dashed var(--color-line); background: var(--color-background); padding: 1.25rem; font-size: .75rem; color: var(--color-muted); }
 .preview-tools > div { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; margin-top: .75rem; }

@@ -38,3 +38,19 @@ español y prefijos obtenidos de los [metadatos de libphonenumber-js](https://un
 Las opciones están incluidas en el HTML y no requieren una petición de red ni
 una dependencia en tiempo de ejecución. La maqueta comprueba el formato y la
 longitud descritos en US01.6; no verifica la existencia o titularidad del número.
+
+`oportunitats.html` integra el listado de US02.1 y la búsqueda de US02.3.1,
+con tarjetas, cifras de financiación y búsqueda local interactiva mediante
+`assets/opportunities.js`. Permite enviar con Enter, limpiar, validar la longitud,
+consultar el estado sin coincidencias y restaurar la consulta con `q` y el historial.
+Los 28 proyectos son ficticios; no se consulta una API. Hay 25 coincidencias para «solar»,
+con páginas de 12, 12 y 1 resultados. Se simula la respuesta paginada del backend,
+la carga, la normalización de `page`, el historial y el foco tras cambiar de página.
+Solo el ejemplo inmobiliario original
+enlaza al detalle disponible. Los errores de red quedan especificados
+en la historia para la implementación.
+
+Todas las cabeceras toman `US01-6/registre.html` como referencia: altura mínima
+de 64 px, ancho máximo de 1120 px, márgenes de 24 px y posición sticky.
+Los enlaces se adaptan a la ubicación de cada HTML y señalan la página actual.
+La maqueta de cierre de sesión conserva sus controles de cuenta autenticada.

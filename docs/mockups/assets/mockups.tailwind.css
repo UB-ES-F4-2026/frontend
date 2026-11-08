@@ -21,3 +21,5 @@ progress { appearance: none; }
 progress::-webkit-progress-bar { background: #E4E7EC; }
 progress::-webkit-progress-value { background: #F5A623; }
 progress::-moz-progress-bar { background: #F5A623; }
+/* The active destination uses the same navigation in every public mockup. */
+.navigation a[aria-current="page"] { color: var(--color-brand); font-weight: 600; }
