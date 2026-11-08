@@ -20,3 +20,14 @@ body {
   min-width: 320px;
   min-height: 100vh;
 }
+
+/* Tema local del registre: conserva la fotografia fosca amb tokens semàntics. */
+.register-theme {
+  --background: #10151f;
+  --foreground: #ffffff;
+  --muted: color-mix(in srgb, var(--foreground) 65%, transparent);
+  --field-background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  --field-foreground: var(--foreground);
+  --accent: var(--warning);
+  --accent-foreground: var(--warning-foreground);
+}
