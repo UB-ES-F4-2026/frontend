@@ -1,10 +1,6 @@
 import { Card, MenuItem } from "@heroui/react";
 import { Opportunity, OpportunityType } from "../../store/useOpportunityStore";
-
-const TYPE_LABEL: Record<OpportunityType, string> = {
-  real_estate: "Inmobiliario",
-  equity: "Startup",
-};
+import { useNavigate } from "react-router";
 
 const eur = new Intl.NumberFormat("es-ES", {
   style: "currency",
@@ -24,9 +20,17 @@ interface OpportunityCardProps {
 const OpportunityCard = ({opportunity} : OpportunityCardProps) => {
     const progress = opportunity.target_amount_cents > 0 
         ? Math.min(100, (opportunity.committed_cents / opportunity.target_amount_cents) * 100) : 0;
+    const navigate = useNavigate();
+
+    const opportunityType = opportunity.type;
+    const opportunityPrefix = opportunityType === "real_estate" ? "real-estate" : "equity";
     
     const handleOpportunityClick = () => {
-        alert("Consulta del detalle de una oportunidad disponible en futuras versiones.");
+        if(opportunityType !== "real_estate"){
+            alert("Actualmente solo se pueden ver detalles de oportunidades inmobiliarias.");
+            return;
+        }
+        navigate(`/opportunities/${opportunityPrefix}/${opportunity.id}`);
     }
     
     return (
@@ -38,6 +42,9 @@ const OpportunityCard = ({opportunity} : OpportunityCardProps) => {
                 <Card.Title>
                     {opportunity.title}
                 </Card.Title>
+                <Card.Description className="text-sm text-muted font-semibold pb-1">
+                    Oportunidad {opportunityType === "real_estate" ? "Inmobiliaria" : "Empresarial"}
+                </Card.Description>
                 <Card.Description className="flex w-full items-center gap-1">
                     <svg
                         xmlns="http://www.w3.org/2000/svg"

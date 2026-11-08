@@ -7,6 +7,7 @@ import TermsOfUse from "../pages/legal/TermsOfUse";
 import PrivacyPolicy from "../pages/legal/PrivacyPolicy";
 import Header from "../components/Header";
 import Opportunities from "../pages/opportunities/Opportunities";
+import RealEstateDetail from "../pages/opportunities/RealEstateDetail";
 
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/legal/condiciones-de-uso" element={<TermsOfUse />} />
           <Route path="/legal/politica-de-privacidad" element={<PrivacyPolicy />} />
           <Route path="/opportunities" element={<Opportunities />} />
+          <Route path="/opportunities/real-estate/:id" element={<RealEstateDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
