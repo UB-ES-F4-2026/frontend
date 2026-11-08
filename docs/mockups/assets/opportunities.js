@@ -104,10 +104,10 @@ async function loadPage(q, page, { focusResults = false } = {}) {
       ? `${response.total} ${response.total === 1 ? 'resultado' : 'resultados'} para «${q}»`
       : `${response.total} ${response.total === 1 ? 'oportunidad' : 'oportunidades'}`;
     emptyResults.hidden = response.total !== 0;
-    emptyResults.querySelector('h3').textContent = q ? 'No se han encontrado oportunidades' : 'Aún no hay oportunidades publicadas';
-    emptyResults.querySelector('p').hidden = !q;
+    emptyResults.textContent = q ? 'No se han encontrado oportunidades' : 'Aún no hay oportunidades publicadas';
     pagination.hidden = response.total_pages <= 1;
     document.querySelector('#page-indicator').textContent = `Página ${response.page} de ${response.total_pages}`;
+    renderPageNumbers(response.page, response.total_pages);
     previousPage.disabled = response.page <= 1;
     nextPage.disabled = response.page >= response.total_pages;
     if (focusResults) {
@@ -155,8 +155,47 @@ function restoreSearch() {
 searchForm.addEventListener('submit', event => { event.preventDefault(); applySearch(); });
 queryInput.addEventListener('input', updateClear);
 clearSearch.addEventListener('click', () => { queryInput.value = ''; applySearch(); queryInput.focus(); });
-previousPage.addEventListener('click', () => { writeUrl(appliedQuery, currentPage - 1); loadPage(appliedQuery, currentPage - 1, { focusResults: true }); });
-nextPage.addEventListener('click', () => { writeUrl(appliedQuery, currentPage + 1); loadPage(appliedQuery, currentPage + 1, { focusResults: true }); });
+function navigatePage(page) {
+  if (page === currentPage) return;
+  writeUrl(appliedQuery, page);
+  loadPage(appliedQuery, page, { focusResults: true });
+}
+function renderPageNumbers(current, total) {
+  const container = document.querySelector('#page-numbers');
+  container.replaceChildren();
+  const mobileStart = Math.max(1, Math.min(current - 1, total - 2));
+  const mobilePages = new Set(Array.from({ length: Math.min(3, total) }, (_, i) => mobileStart + i));
+  const desktopPages = new Set(total <= 7 ? Array.from({ length: total }, (_, i) => i + 1)
+    : [1, total, ...Array.from({ length: 3 }, (_, i) => current - 1 + i).filter(n => n >= 1 && n <= total)]);
+  const visiblePages = [...new Set([...mobilePages, ...desktopPages])].sort((a, b) => a - b);
+  let previousDesktop = 0;
+  for (const number of visiblePages) {
+    if (desktopPages.has(number)) {
+      if (previousDesktop && number - previousDesktop > 1) {
+        const dots = document.createElement('span');
+        dots.className = 'hidden h-11 min-w-8 items-center justify-center text-sm text-muted sm:inline-flex';
+        dots.textContent = '…';
+        dots.setAttribute('aria-hidden', 'true');
+        container.append(dots);
+      }
+      previousDesktop = number;
+    }
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = String(number);
+    button.setAttribute('aria-label', `Página ${number}`);
+    const visibility = mobilePages.has(number) ? (desktopPages.has(number) ? 'inline-flex' : 'inline-flex sm:hidden') : 'hidden sm:inline-flex';
+    button.className = `${visibility} h-11 min-w-11 items-center justify-center rounded-lg border px-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand`;
+    if (number === current) {
+      button.setAttribute('aria-current', 'page');
+      button.className += ' border-amber bg-amber text-ink';
+    } else button.className += ' border-line bg-white text-brand hover:bg-soft-blue';
+    button.addEventListener('click', () => navigatePage(number));
+    container.append(button);
+  }
+}
+previousPage.addEventListener('click', () => navigatePage(currentPage - 1));
+nextPage.addEventListener('click', () => navigatePage(currentPage + 1));
 document.querySelector('#retry-search').addEventListener('click', () => loadPage(lastRequest.q, lastRequest.page));
 window.addEventListener('popstate', restoreSearch);
 restoreSearch();

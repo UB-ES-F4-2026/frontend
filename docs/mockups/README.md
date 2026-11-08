@@ -39,7 +39,7 @@ Las opciones están incluidas en el HTML y no requieren una petición de red ni
 una dependencia en tiempo de ejecución. La maqueta comprueba el formato y la
 longitud descritos en US01.6; no verifica la existencia o titularidad del número.
 
-`oportunitats.html` integra el listado de US02.1 y la búsqueda de US02.3.1,
+`US02-3-1/oportunitats.html` integra el listado de US02.1 y la búsqueda de US02.3.1,
 con tarjetas, cifras de financiación y búsqueda local interactiva mediante
 `assets/opportunities.js`. Permite enviar con Enter, limpiar, validar la longitud,
 consultar el estado sin coincidencias y restaurar la consulta con `q` y el historial.
