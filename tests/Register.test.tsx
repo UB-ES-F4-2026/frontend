@@ -18,7 +18,7 @@ vi.mock("../src/store/useAuthStore", () => ({
   useAuthStore: (selector: (value: typeof state) => unknown) => selector(state),
 }));
 
-const personalData = { fullName: "María Prueba-López", email: "gerard@example.com", phone: "+34 612 345 678" };
+const personalData = { firstName: "María", lastName: "Prueba-López", email: "gerard@example.com", phone: "612 345 678" };
 const terms = () => screen.getByRole("checkbox", { name: "Acepto las condiciones de uso." });
 const privacy = () => screen.getByRole("checkbox", { name: "He leído la política de privacidad." });
 
@@ -27,9 +27,10 @@ function renderRegister() {
 }
 
 async function fillPersonalData(user: ReturnType<typeof userEvent.setup>, email = personalData.email) {
-  await user.type(screen.getByLabelText("Nombre y apellidos"), personalData.fullName);
+  await user.type(screen.getByLabelText("Nombre", { exact: true }), personalData.firstName);
+  await user.type(screen.getByLabelText("Apellidos"), personalData.lastName);
   await user.type(screen.getByLabelText("Correo electrónico"), email);
-  await user.type(screen.getByLabelText("Número de teléfono"), personalData.phone);
+  await user.type(screen.getByLabelText("Número", { exact: true }), personalData.phone);
 }
 
 async function goToAccess(user: ReturnType<typeof userEvent.setup>) {
@@ -62,9 +63,11 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
   it("comença per les dades personals, neteja errors anteriors i ofereix el login", () => {
     renderRegister();
     expect(state.resetRegistration).toHaveBeenCalledOnce();
-    expect(screen.getByLabelText("Nombre y apellidos")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nombre", { exact: true })).toBeInTheDocument();
+    expect(screen.getByLabelText("Apellidos")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /País y prefijo/ })).toHaveTextContent("España (+34)");
     expect(screen.getByLabelText("Correo electrónico")).toBeInTheDocument();
-    expect(screen.getByLabelText("Número de teléfono")).toBeInTheDocument();
+    expect(screen.getByLabelText("Número", { exact: true })).toBeInTheDocument();
     expect(screen.queryByLabelText("Contraseña", { exact: true })).not.toBeInTheDocument();
     expect(screen.getByText("Datos personales").closest("li")).toHaveAttribute("aria-current", "step");
     expect(screen.getByText("Datos de acceso").closest("li")).not.toHaveAttribute("aria-current");
@@ -74,10 +77,46 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
   it("no avança amb els camps obligatoris buits", async () => {
     renderRegister();
     await userEvent.setup().click(screen.getByRole("button", { name: "Continuar" }));
-    for (const label of ["Nombre y apellidos", "Correo electrónico", "Número de teléfono"]) {
-      expect(screen.getByLabelText(label)).toBeInvalid();
+    for (const label of ["Nombre", "Apellidos", "Correo electrónico", "Número"]) {
+      expect(screen.getByLabelText(label, { exact: true })).toBeInvalid();
     }
     expect(screen.queryByRole("button", { name: "Crear cuenta" })).not.toBeInTheDocument();
+    expect(state.register).not.toHaveBeenCalled();
+  });
+
+  it.each(["Nombre", "Apellidos"])("requereix %s encara que la resta de dades estiguin plenes", async (label) => {
+    renderRegister();
+    const user = userEvent.setup();
+    await fillPersonalData(user);
+    await user.clear(screen.getByLabelText(label, { exact: true }));
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByLabelText(label, { exact: true })).toBeInvalid();
+    expect(screen.queryByLabelText("Contraseña", { exact: true })).not.toBeInTheDocument();
+    expect(state.register).not.toHaveBeenCalled();
+  });
+
+  it("conserva el país i el número separats en canviar de pas", async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    await fillPersonalData(user);
+    await user.click(screen.getByRole("button", { name: /País y prefijo/ }));
+    await user.click(screen.getByRole("option", { name: "Francia (+33)" }));
+    expect(screen.getByLabelText("Número", { exact: true })).toHaveValue(personalData.phone);
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(screen.getByRole("button", { name: "Volver atrás" }));
+    expect(screen.getByRole("button", { name: /País y prefijo/ })).toHaveTextContent("Francia (+33)");
+    expect(screen.getByLabelText("Número", { exact: true })).toHaveValue(personalData.phone);
+    expect(state.register).not.toHaveBeenCalled();
+  });
+
+  it("distingeix països que comparteixen prefix", async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    for (const country of ["Canadá (+1)", "Estados Unidos (+1)"]) {
+      await user.click(screen.getByRole("button", { name: /País y prefijo/ }));
+      await user.click(screen.getByRole("option", { name: country }));
+      expect(screen.getByRole("button", { name: /País y prefijo/ })).toHaveTextContent(country);
+    }
     expect(state.register).not.toHaveBeenCalled();
   });
 
@@ -117,9 +156,10 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     await user.click(terms());
     await user.click(privacy());
     await user.click(screen.getByRole("button", { name: "Volver atrás" }));
-    expect(screen.getByLabelText("Nombre y apellidos")).toHaveValue(personalData.fullName);
+    expect(screen.getByLabelText("Nombre", { exact: true })).toHaveValue(personalData.firstName);
+    expect(screen.getByLabelText("Apellidos")).toHaveValue(personalData.lastName);
     expect(screen.getByLabelText("Correo electrónico")).toHaveValue(personalData.email);
-    expect(screen.getByLabelText("Número de teléfono")).toHaveValue(personalData.phone);
+    expect(screen.getByLabelText("Número", { exact: true })).toHaveValue(personalData.phone);
     expect(screen.getByText("Datos personales").closest("li")).toHaveAttribute("aria-current", "step");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveValue("password123");
@@ -136,18 +176,27 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
   });
 
   it.each([
-    ["Consultar condiciones", "Condiciones de uso"],
-    ["Consultar privacidad", "Política de privacidad"],
-  ])("%s mostra l’avís provisional sense enviar ni canviar les caselles", async (button, title) => {
+    ["Consultar condiciones", "/legal/condiciones-de-uso"],
+    ["Consultar privacidad", "/legal/politica-de-privacidad"],
+  ])("%s obre el document en una altra pestanya i conserva el formulari", async (label, href) => {
     renderRegister();
     const user = userEvent.setup();
     await goToAccess(user);
     await fillAccess(user);
-    await user.click(screen.getByRole("button", { name: button }));
-    expect(screen.getByText(`${title}: documento en preparación`).closest('[role="status"]')).toHaveTextContent("Estamos trabajando en este documento. Estará disponible próximamente.");
+    const link = screen.getByRole("link", { name: `${label} (se abre en una pestaña nueva)` });
+    expect(link).toHaveAttribute("href", href);
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    await user.click(link);
+    expect(screen.getByText("Documentos en borrador, pendientes de revisión.")).toBeInTheDocument();
     expect(terms()).not.toBeChecked();
     expect(privacy()).not.toBeChecked();
     expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveValue("password123");
+    await user.click(screen.getByRole("button", { name: "Volver atrás" }));
+    expect(screen.getByLabelText("Nombre", { exact: true })).toHaveValue(personalData.firstName);
+    expect(screen.getByLabelText("Apellidos")).toHaveValue(personalData.lastName);
+    expect(screen.getByLabelText("Correo electrónico")).toHaveValue(personalData.email);
+    expect(screen.getByLabelText("Número", { exact: true })).toHaveValue(personalData.phone);
     expect(state.register).not.toHaveBeenCalled();
   });
 
@@ -179,6 +228,26 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     expect(screen.getByRole("button", { name: "Mostrar contraseña" })).toHaveFocus();
     await user.keyboard("{Enter}");
     expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveAttribute("type", "text");
+    expect(state.register).not.toHaveBeenCalled();
+  });
+
+  it("permet marcar les confirmacions amb el teclat sense enviar el formulari", async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    await goToAccess(user);
+    await user.click(screen.getByLabelText("Confirma la contraseña"));
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Mostrar confirmación de contraseña" })).toHaveFocus();
+    await user.tab();
+    expect(terms()).toHaveFocus();
+    await user.keyboard(" ");
+    expect(terms()).toBeChecked();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "Consultar condiciones (se abre en una pestaña nueva)" })).toHaveFocus();
+    await user.tab();
+    expect(privacy()).toHaveFocus();
+    await user.keyboard(" ");
+    expect(privacy()).toBeChecked();
     expect(state.register).not.toHaveBeenCalled();
   });
 
@@ -274,8 +343,9 @@ describe("Register: comportament existent amb el store simulat", () => {
     expect(privacy()).toBeChecked();
     await userEvent.setup().click(screen.getByRole("button", { name: "Volver atrás" }));
     expect(screen.getByLabelText("Correo electrónico")).toHaveValue(personalData.email);
-    expect(screen.getByLabelText("Nombre y apellidos")).toHaveValue(personalData.fullName);
-    expect(screen.getByLabelText("Número de teléfono")).toHaveValue(personalData.phone);
+    expect(screen.getByLabelText("Nombre", { exact: true })).toHaveValue(personalData.firstName);
+    expect(screen.getByLabelText("Apellidos")).toHaveValue(personalData.lastName);
+    expect(screen.getByLabelText("Número", { exact: true })).toHaveValue(personalData.phone);
     expect(screen.queryByText("Cuenta creada")).not.toBeInTheDocument();
   });
 
