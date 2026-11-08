@@ -23,6 +23,13 @@ vi.mock("../src/pages/opportunities/Opportunities", () => ({
   default: () => <h1>Pàgina simulada: oportunitats</h1>,
 }));
 
+vi.mock("../src/pages/legal/TermsOfUse", () => ({
+  default: () => <h1>Pàgina simulada: condicions</h1>,
+}));
+vi.mock("../src/pages/legal/PrivacyPolicy", () => ({
+  default: () => <h1>Pàgina simulada: privacitat</h1>,
+}));
+
 function CurrentPath() {
   return <output aria-label="Ruta actual">{useLocation().pathname}</output>;
 }
@@ -42,6 +49,8 @@ describe("enrutat d'App", () => {
     ["/register", "Pàgina simulada: registre"],
     ["/login", "Pàgina simulada: login"],
     ["/opportunities", "Pàgina simulada: oportunitats"],
+    ["/legal/condiciones-de-uso", "Pàgina simulada: condicions"],
+    ["/legal/politica-de-privacidad", "Pàgina simulada: privacitat"],
     ["/test", "Pàgina simulada: connexió"],
   ])("mostra la pàgina corresponent a %s dins de main", (path, heading) => {
     renderApp(path);

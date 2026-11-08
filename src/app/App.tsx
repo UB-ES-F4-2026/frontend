@@ -3,6 +3,8 @@ import HomePage from "../pages/home/HomePage";
 import AppTest from "../pages/test/AppTest";
 import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
+import TermsOfUse from "../pages/legal/TermsOfUse";
+import PrivacyPolicy from "../pages/legal/PrivacyPolicy";
 import Header from "../components/Header";
 import Opportunities from "../pages/opportunities/Opportunities";
 
@@ -16,6 +18,8 @@ export default function App() {
           <Route path="/test" element={<AppTest />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/legal/condiciones-de-uso" element={<TermsOfUse />} />
+          <Route path="/legal/politica-de-privacidad" element={<PrivacyPolicy />} />
           <Route path="/opportunities" element={<Opportunities />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
