@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Alert, Button, Input, Label, Spinner, TextField } from "@heroui/react";
+import { Alert, Button, Input, Label, ListBox, Select, Spinner, TextField } from "@heroui/react";
 import { Link } from "react-router";
+import { phoneCountries } from "./phoneCountries";
 import cityDawn from "../../assets/city_dawn.jpg";
 import { useAuthStore } from "../../store/useAuthStore";
 
@@ -10,7 +11,9 @@ const Register = () => {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
   // Camps controlats: React conserva els valors que introdueix l’usuari.
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phoneCountry, setPhoneCountry] = useState("ES");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -136,18 +139,25 @@ const Register = () => {
                 {/* El navegador valida el camp obligatori i el format bàsic del correu. */}
                 {step === 1 && (
                   <>
-                    <TextField name="fullName" isRequired isDisabled={isSubmitting}>
-                      <Label className="text-sm font-medium text-white/90">Nombre y apellidos</Label>
-                      <Input
-                        className="h-10 rounded-xl border border-white/15 bg-white/5 px-4 text-white shadow-none placeholder:text-white/40 hover:bg-white/10 focus:border-warning focus:ring-2 focus:ring-warning/30"
-                        name="fullName"
-                        autoComplete="name"
-                        placeholder="Tu nombre y apellidos"
-                        required
-                        value={fullName}
-                        onChange={(event) => setFullName(event.target.value)}
-                      />
-                    </TextField>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { name: "first_name", label: "Nombre", autoComplete: "given-name", placeholder: "Tu nombre", value: firstName, setValue: setFirstName },
+                        { name: "last_name", label: "Apellidos", autoComplete: "family-name", placeholder: "Tus apellidos", value: lastName, setValue: setLastName },
+                      ].map((field) => (
+                        <TextField key={field.name} name={field.name} isRequired isDisabled={isSubmitting} className="min-w-0">
+                          <Label className="text-sm font-medium text-white/90">{field.label}</Label>
+                          <Input
+                            className="h-10 w-full min-w-0 rounded-xl border border-white/15 bg-white/5 px-4 text-white shadow-none placeholder:text-white/40 hover:bg-white/10 focus:border-warning focus:ring-2 focus:ring-warning/30"
+                            name={field.name}
+                            autoComplete={field.autoComplete}
+                            placeholder={field.placeholder}
+                            required
+                            value={field.value}
+                            onChange={(event) => field.setValue(event.target.value)}
+                          />
+                        </TextField>
+                      ))}
+                    </div>
                     <TextField name="email" type="email" isRequired isDisabled={isSubmitting}>
                       <Label className="text-sm font-medium text-white/90">Correo electrónico</Label>
                       <Input
@@ -161,23 +171,45 @@ const Register = () => {
                         onChange={(event) => setEmail(event.target.value)}
                       />
                     </TextField>
-                    <TextField name="phone" type="tel" isRequired isDisabled={isSubmitting}>
-                      <Label className="text-sm font-medium text-white/90">Número de teléfono</Label>
-                      <Input
-                        className="h-10 rounded-xl border border-white/15 bg-white/5 px-4 text-white shadow-none placeholder:text-white/40 hover:bg-white/10 focus:border-warning focus:ring-2 focus:ring-warning/30"
-                        type="tel"
-                        name="phone"
-                        autoComplete="tel"
-                        placeholder="612 345 678"
-                        required
-                        aria-describedby="register-phone-help"
-                        value={phone}
-                        onChange={(event) => setPhone(event.target.value)}
-                      />
-                      <p id="register-phone-help" className="text-xs leading-relaxed text-white/65">
-                        Número español o internacional con prefijo +.
+                    <fieldset className="min-w-0">
+                      <legend className="sr-only">Número de teléfono</legend>
+                      <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
+                        <Select name="phone_country" value={phoneCountry} onChange={(value) => setPhoneCountry(String(value))}
+                          isRequired isDisabled={isSubmitting} className="min-w-0">
+                          <Label className="text-sm font-medium text-white/90">País y prefijo</Label>
+                          <Select.Trigger className="h-10 min-h-10 w-full min-w-0 rounded-xl border border-white/15 bg-white/5 px-3 text-white shadow-none hover:bg-white/10 focus-visible:outline-warning">
+                            <Select.Value className="min-w-0 truncate" />
+                            <Select.Indicator />
+                          </Select.Trigger>
+                          <Select.Popover>
+                            <ListBox aria-label="Países y prefijos">
+                              {phoneCountries.map((country) => (
+                                <ListBox.Item key={country.code} id={country.code} textValue={country.label}>
+                                  {country.label}
+                                </ListBox.Item>
+                              ))}
+                            </ListBox>
+                          </Select.Popover>
+                        </Select>
+                        <TextField name="phone" type="tel" isRequired isDisabled={isSubmitting} className="min-w-0">
+                          <Label className="text-sm font-medium text-white/90">Número</Label>
+                          <Input
+                            className="h-10 w-full min-w-0 rounded-xl border border-white/15 bg-white/5 px-4 text-white shadow-none placeholder:text-white/40 hover:bg-white/10 focus:border-warning focus:ring-2 focus:ring-warning/30"
+                            type="tel"
+                            name="phone"
+                            autoComplete="tel-national"
+                            placeholder={phoneCountry === "ES" ? "612 345 678" : "Número sin prefijo"}
+                            required
+                            aria-describedby="register-phone-help"
+                            value={phone}
+                            onChange={(event) => setPhone(event.target.value)}
+                          />
+                        </TextField>
+                      </div>
+                      <p id="register-phone-help" className="mt-2 text-xs leading-relaxed text-white/65">
+                        Introduce el número sin el prefijo internacional.
                       </p>
-                    </TextField>
+                    </fieldset>
                   </>
                 )}
                 {/* El text d’ajuda queda vinculat al camp per als lectors de pantalla. */}
