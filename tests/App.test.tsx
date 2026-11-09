@@ -25,6 +25,9 @@ vi.mock("../src/pages/test/AppTest", () => ({
 vi.mock("../src/pages/opportunities/Opportunities", () => ({
   default: () => <h1>Pàgina simulada: oportunitats</h1>,
 }));
+vi.mock("../src/pages/wallet/MyWalletPage", () => ({
+  default: () => <h1>Pàgina simulada: saldo</h1>,
+}));
 
 function CurrentPath() {
   return <output aria-label="Ruta actual">{useLocation().pathname}</output>;
@@ -83,5 +86,30 @@ describe("rutes de visitant amb sessió activa", () => {
     act(() => useAuthStore.setState({ active_account: account }));
     expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
     expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
+  });
+});
+
+describe("ruta privada /my-balance", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it("mostra «Mi saldo» al client autenticat", () => {
+    useAuthStore.setState({ active_account: account, sessionChecked: true });
+    renderApp("/my-balance");
+    expect(within(screen.getByRole("main")).getByRole("heading", { name: "Pàgina simulada: saldo" })).toBeInTheDocument();
+  });
+
+  it("porta el visitant al login sense mostrar la pàgina", async () => {
+    useAuthStore.setState({ sessionChecked: true });
+    renderApp("/my-balance");
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
+  });
+
+  it("en recarregar espera la sessió recuperada en lloc d’expulsar l’usuari", async () => {
+    renderApp("/my-balance");
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/my-balance$/);
+    expect(screen.queryByRole("heading", { name: "Pàgina simulada: saldo" })).not.toBeInTheDocument();
+    act(() => useAuthStore.setState({ active_account: account, sessionChecked: true }));
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: saldo" })).toBeInTheDocument();
   });
 });

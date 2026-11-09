@@ -5,6 +5,8 @@ import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import Header from "../components/Header";
 import Opportunities from "../pages/opportunities/Opportunities";
+import MyWalletPage from "../pages/wallet/MyWalletPage";
+import RequireAuth from "../components/RequireAuth";
 
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -20,6 +22,7 @@ export default function App() {
           <Route path="/login" element={account ? <Navigate to="/" replace /> : <Login />} />
           <Route path="/register" element={account ? <Navigate to="/" replace /> : <Register />} />
           <Route path="/opportunities" element={<Opportunities />} />
+          <Route path="/my-balance" element={<RequireAuth><MyWalletPage /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
