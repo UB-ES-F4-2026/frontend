@@ -23,13 +23,11 @@ beforeEach(() => {
 });
 
 describe("Mi saldo", () => {
-  it("mostra el títol, l’avís de simulació i l’ajuda", async () => {
+  it("mostra el títol i l’avís de simulació", async () => {
     get.mockResolvedValue({ available_cents: 100, currency: "eur" });
     render(<MyWalletPage />);
     expect(screen.getByRole("heading", { level: 1, name: "Mi saldo" })).toBeInTheDocument();
-    expect(screen.getByText("Entorno de simulación.")).toBeInTheDocument();
-    expect(screen.getByText("Este saldo no representa dinero real.")).toBeInTheDocument();
-    expect(screen.getByText("Importe simulado disponible para futuras operaciones de inversión o retirada.")).toBeInTheDocument();
+    expect(screen.getByText("Entorno de simulación. Este saldo no representa dinero real.")).toBeInTheDocument();
     await screen.findByText("1,00 €");
   });
 

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Alert, Button, Card, Spinner } from "@heroui/react";
+import { Button, Card, Spinner } from "@heroui/react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWalletStore } from "../../store/useWalletStore";
 
@@ -57,6 +57,10 @@ export default function MyWalletPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Mi saldo</h1>
           <p className="mt-2 text-muted">Consulta el importe disponible en tu cuenta.</p>
+          {/* Avís permanent de la US 04.1: tots els imports d'aquest MVP són simulats. */}
+          <p className="mt-1 text-sm text-muted">
+            Entorno de simulación. Este saldo no representa dinero real.
+          </p>
         </div>
 
         <section aria-labelledby="balance-label">
@@ -104,7 +108,6 @@ export default function MyWalletPage() {
                 )}
               </div>
             </div>
-          
           </Card>
         </section>
       </div>
