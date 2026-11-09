@@ -7,7 +7,7 @@ import TermsOfUse from "../pages/legal/TermsOfUse";
 import PrivacyPolicy from "../pages/legal/PrivacyPolicy";
 import Header from "../components/Header";
 import Opportunities from "../pages/opportunities/Opportunities";
-import RealEstateDetail from "../pages/opportunities/RealEstateDetail";
+import RealEstateDetail from "../pages/opportunities/real-estate/RealEstateDetail";
 
 import { useAuthStore } from "../store/useAuthStore";
 
