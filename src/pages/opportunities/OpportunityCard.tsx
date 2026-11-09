@@ -2,8 +2,8 @@ import { Card } from "@heroui/react";
 import { Opportunity, OpportunityType } from "../../store/useOpportunityStore";
 
 const TYPE_LABEL: Record<OpportunityType, string> = {
-  real_estate: "Inmobiliario",
-  equity: "Startup",
+  real_estate: "Inmobiliaria",
+  equity: "Empresarial",
 };
 
 const eur = new Intl.NumberFormat("es-ES", {
