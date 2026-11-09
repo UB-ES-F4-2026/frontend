@@ -21,7 +21,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/70 backdrop-blur-md">
       <nav
         aria-label="Navegación principal"
-        className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6"
+        className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6"
       >
 
         <Link to="/" className="flex gap-3 items-center">
@@ -30,7 +30,10 @@ const Header = () => {
               ES
             </Chip.Label>
           </Chip>
-          <p className="font-bold tracking-tight text-foreground">Grupo F4</p>
+          {/* Amb sessió, en mòbil cedim l'espai a «Mi saldo»; el nom continua al nom accessible. */}
+          <p className={`whitespace-nowrap font-bold tracking-tight text-foreground ${account ? "sr-only sm:not-sr-only" : ""}`}>
+            Grupo F4
+          </p>
         </Link>
 
         <div className="hidden items-center gap-8 sm:flex">
@@ -38,9 +41,13 @@ const Header = () => {
           <NavLink to="/opportunities" className={navLinkClass}>Oportunidades</NavLink>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           {account ? (
             <>
+              {/* Fora del bloc ocult en mòbil: «Mi saldo» ha de ser accessible a qualsevol amplada. */}
+              <NavLink to="/my-balance" className={(s) => `${navLinkClass(s)} whitespace-nowrap`}>
+                Mi saldo
+              </NavLink>
               <Button variant="danger" size="lg" onPress={handleLogout} isDisabled={status === "loading"}>
                 Cerrar sesión
               </Button>
