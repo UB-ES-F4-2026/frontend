@@ -1,8 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
-import { describe, expect, it } from "vitest";
+import { act } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
 import Header from "../src/components/Header";
+import { useAuthStore } from "../src/store/useAuthStore";
 
 function CurrentPath() {
   return <output aria-label="Ruta actual">{useLocation().pathname}</output>;
@@ -16,6 +18,8 @@ function renderHeader(path = "/") {
     </MemoryRouter>,
   );
 }
+
+beforeEach(() => useAuthStore.setState(useAuthStore.getInitialState(), true));
 
 const navigation = () => within(screen.getByRole("navigation", { name: "Navegación principal" }));
 
@@ -78,5 +82,25 @@ describe("Header", () => {
     await user.click(navigation().getByRole("link", { name: "ES Grupo F4" }));
     expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
     expect(navigation().getByRole("link", { name: "Inicio" })).toHaveAttribute("aria-current", "page");
+  });
+});
+describe("Header: accés a «Mi saldo»", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it("no l’ofereix als visitants", () => {
+    renderHeader();
+    expect(navigation().queryByRole("link", { name: "Mi saldo" })).not.toBeInTheDocument();
+  });
+
+  it("l’ofereix al client autenticat, fora del bloc ocult en mòbil, i navega a /my-balance", async () => {
+    renderHeader();
+    act(() => useAuthStore.setState({ active_account: account }));
+    const link = navigation().getByRole("link", { name: "Mi saldo" });
+    expect(link).toHaveAttribute("href", "/my-balance");
+    expect(link.closest(".hidden")).toBeNull();
+
+    await userEvent.setup().click(link);
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/my-balance$/);
+    expect(link).toHaveAttribute("aria-current", "page");
   });
 });
