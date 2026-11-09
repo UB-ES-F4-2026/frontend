@@ -5,7 +5,7 @@ import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import Header from "../components/Header";
 import Opportunities from "../pages/opportunities/Opportunities";
-import RealEstateDetail from "../pages/opportunities/RealEstateDetail";
+import RealEstateDetail from "../pages/opportunities/real-estate/RealEstateDetail";
 
 export default function App() {
   return (
