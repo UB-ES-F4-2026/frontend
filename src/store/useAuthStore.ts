@@ -10,6 +10,9 @@ export interface LoginPayload {
 // Contracte del registre actual: només correu i contrasenya.
 export interface RegisterPayload {
   email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
   password: string;
 }
 
@@ -56,6 +59,33 @@ const getLoginErrorMessage = (error: unknown): string => {
   return GENERIC_LOGIN_ERROR;
 };
 
+// No mostrem missatges, valors ni context retornats pel servidor: poden contenir contrasenyes.
+const getRegistrationErrorMessage = (error: unknown): string => {
+  if (error instanceof ApiError && error.status === 409) {
+    return "Ya existe una cuenta con este correo electrónico. Inicia sesión o utiliza otro correo.";
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    const labels: Record<string, string> = {
+      first_name: "nombre", last_name: "apellidos", email: "correo electrónico", phone: "teléfono", password: "contraseña",
+    };
+    const body = error.details;
+    const details = typeof body === "object" && body !== null && "detail" in body ? body.detail : undefined;
+    const fields = new Set<string>();
+    if (Array.isArray(details)) {
+      for (const detail of details) {
+        if (typeof detail !== "object" || detail === null || !Array.isArray(detail.loc)) continue;
+        const [source, field] = detail.loc;
+        if (source === "body" && typeof field === "string" && Object.hasOwn(labels, field)) fields.add(labels[field]);
+      }
+    }
+    return fields.size ? `Revisa los siguientes campos: ${[...fields].join(", ")}.` : "Revisa los datos del formulario.";
+  }
+  if (error instanceof TypeError) {
+    return "No se ha podido conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.";
+  }
+  return "No se ha podido crear la cuenta. Inténtalo de nuevo en unos instantes.";
+};
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   status: "idle",
   details: "",
@@ -63,7 +93,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   registrationStatus: "idle",
   registrationDetails: "",
 
-  login: async (credentials) => {
+  login: async (credentials: LoginPayload) => {
     // Com al registre, evitem peticions duplicades mentre n’hi ha una en curs.
     if (get().status === "loading") return null;
     sessionRevision++;
@@ -95,7 +125,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (userData) => {
+  register: async (userData: RegisterPayload) => {
     // Zustand actualitza l’estat immediatament: evitem peticions duplicades.
     if (get().registrationStatus === "loading") return null;
     set({ registrationStatus: "loading", registrationDetails: "" });
@@ -103,6 +133,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const newUser = await fintechPost<RegisteredUser>("/auth/register", {
         email: userData.email.trim().toLowerCase(),
+        first_name: userData.first_name,
+        last_name: userData.last_name,
+        phone: userData.phone,
         password: userData.password,
       });
 
@@ -110,13 +143,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ registrationStatus: "success", registrationDetails: "" });
       return newUser;
     } catch (error: unknown) {
-      let message = "No se ha podido crear la cuenta. Inténtalo de nuevo en unos instantes.";
-      if (error instanceof ApiError && error.status === 409) {
-        message = "Ya existe una cuenta con este correo electrónico. Inicia sesión o utiliza otro correo.";
-      } else if (error instanceof ApiError && error.status === 422) {
-        message = "Revisa el correo y la contraseña. El correo debe ser válido y la contraseña debe tener al menos 8 caracteres y ocupar como máximo 72 bytes.";
-      }
-      set({ registrationStatus: "error", registrationDetails: message });
+      set({ registrationStatus: "error", registrationDetails: getRegistrationErrorMessage(error) });
       return null;
     }
   },
@@ -136,7 +163,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       active_account: null,
     });
   },
-
+  
   logout: async () => {
     if (get().status === "loading") return false;
     sessionRevision++;

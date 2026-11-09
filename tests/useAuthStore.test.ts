@@ -12,6 +12,7 @@ vi.mock("../src/service/api", async (importOriginal) => ({
 const post = vi.mocked(fintechPost);
 const get = vi.mocked(fintechGet);
 const credentials = { email: "gerard@example.com", password: "password123" };
+const registrationData = { ...credentials, first_name: "María", last_name: "Prueba-López", phone: "+34612345678" };
 const createdUser: RegisteredUser = { id: 1, email: credentials.email, created_at: "2026-10-17T10:00:00Z" };
 
 beforeEach(() => {
@@ -22,8 +23,8 @@ beforeEach(() => {
 describe("registre de useAuthStore aïllat de l’API", () => {
   it("normalitza el correu, retorna el compte i no inicia sessió", async () => {
     post.mockResolvedValue(createdUser);
-    const result = await useAuthStore.getState().register({ email: "  Gerard@Example.COM  ", password: credentials.password });
-    expect(post).toHaveBeenCalledExactlyOnceWith("/auth/register", credentials);
+    const result = await useAuthStore.getState().register({ ...registrationData, email: "  Gerard@Example.COM  " });
+    expect(post).toHaveBeenCalledExactlyOnceWith("/auth/register", registrationData);
     expect(result).toEqual(createdUser);
     expect(useAuthStore.getState()).toMatchObject({
       registrationStatus: "success", registrationDetails: "", active_account: null,
@@ -35,11 +36,11 @@ describe("registre de useAuthStore aïllat de l’API", () => {
     let resolve!: (user: RegisteredUser) => void;
     post.mockReturnValue(new Promise<RegisteredUser>((done) => { resolve = done; }));
     useAuthStore.setState({ registrationDetails: "Error anterior" });
-    const pending = useAuthStore.getState().register(credentials);
+    const pending = useAuthStore.getState().register(registrationData);
     expect(useAuthStore.getState()).toMatchObject({ registrationStatus: "loading", registrationDetails: "" });
     useAuthStore.getState().resetRegistration();
     expect(useAuthStore.getState().registrationStatus).toBe("loading");
-    expect(await useAuthStore.getState().register(credentials)).toBeNull();
+    expect(await useAuthStore.getState().register(registrationData)).toBeNull();
     expect(post).toHaveBeenCalledOnce();
     resolve(createdUser);
     expect(await pending).toEqual(createdUser);
@@ -48,21 +49,35 @@ describe("registre de useAuthStore aïllat de l’API", () => {
 
   it.each([
     ["409", new ApiError("Conflict", 409, null), "Ya existe una cuenta con este correo electrónico."],
-    ["422", new ApiError("Invalid", 422, null), "Revisa el correo y la contraseña."],
+    ["422", new ApiError("Invalid", 422, null), "Revisa los datos del formulario."],
     ["500", new ApiError("Server error", 500, null), "No se ha podido crear la cuenta."],
-    ["xarxa", new TypeError("Failed to fetch"), "No se ha podido crear la cuenta."],
+    ["xarxa", new TypeError("Failed to fetch"), "No se ha podido conectar con el servidor."],
   ])("retorna null i un missatge comprensible davant un error %s", async (_label, error, message) => {
     post.mockRejectedValue(error);
-    expect(await useAuthStore.getState().register(credentials)).toBeNull();
+    expect(await useAuthStore.getState().register(registrationData)).toBeNull();
     expect(useAuthStore.getState().registrationStatus).toBe("error");
     expect(useAuthStore.getState().registrationDetails).toContain(message);
     expect(useAuthStore.getState().active_account).toBeNull();
   });
 
+  it.each([
+    [422, { detail: [{ loc: ["body", "password"], msg: credentials.password, input: credentials.password, ctx: { value: credentials.password } },
+      { loc: ["body", "phone"], msg: credentials.password }, { loc: ["body", "phone"] }] }, "Revisa los siguientes campos: contraseña, teléfono."],
+    [422, { detail: [null, "invalid", { loc: ["body", credentials.password] }, { loc: ["body", "__proto__"] }] }, "Revisa los datos del formulario."],
+    [422, { detail: credentials.password }, "Revisa los datos del formulario."],
+    [500, { detail: credentials.password }, "No se ha podido crear la cuenta."],
+    [401, { detail: credentials.password }, "No se ha podido crear la cuenta."],
+  ])("tradueix l’error %s sense exposar text ni dades del servidor", async (status, details, expected) => {
+    post.mockRejectedValue(new ApiError(credentials.password, status, details));
+    expect(await useAuthStore.getState().register(registrationData)).toBeNull();
+    expect(useAuthStore.getState().registrationDetails).toContain(expected);
+    expect(useAuthStore.getState().registrationDetails).not.toContain(credentials.password);
+  });
+
   it("permet reintentar el registre després d’un error", async () => {
     post.mockRejectedValueOnce(new Error("Offline")).mockResolvedValueOnce(createdUser);
-    await useAuthStore.getState().register(credentials);
-    expect(await useAuthStore.getState().register(credentials)).toEqual(createdUser);
+    await useAuthStore.getState().register(registrationData);
+    expect(await useAuthStore.getState().register(registrationData)).toEqual(createdUser);
     expect(useAuthStore.getState()).toMatchObject({ registrationStatus: "success", registrationDetails: "" });
   });
 
