@@ -39,27 +39,30 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          {account && (
+          {account ? (
             <>
               <Button variant="danger" size="lg" onPress={handleLogout} isDisabled={status === "loading"}>
                 Cerrar sesión
               </Button>
               {status === "error" && <span role="alert">{details}</span>}
             </>
-          )}
-          <NavLink
-            to="/login"
-            className={(s) => `${navLinkClass(s)} hidden lg:block`}
-          >
-            Iniciar sesión
-          </NavLink>
+          ) : (
+            <>
+              <NavLink
+                to="/login"
+                className={(s) => `${navLinkClass(s)} hidden lg:block`}
+              >
+                Iniciar sesión
+              </NavLink>
 
-          <NavLink
-            to="/register"
-            className={`${buttonVariants({ variant: "primary", size: "lg" })} bg-warning text-warning-foreground hover:bg-warning/90`}
-          >
-            Registrarse
-          </NavLink>
+              <NavLink
+                to="/register"
+                className={`${buttonVariants({ variant: "primary", size: "lg" })} bg-warning text-warning-foreground hover:bg-warning/90`}
+              >
+                Registrarse
+              </NavLink>
+            </>
+          )}
         </div>
 
       </nav>
