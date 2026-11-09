@@ -59,14 +59,6 @@ export default function MyWalletPage() {
           <p className="mt-2 text-muted">Consulta el importe disponible en tu cuenta.</p>
         </div>
 
-        <Alert status="warning">
-          <Alert.Indicator />
-          <Alert.Content>
-            <Alert.Title>Entorno de simulación.</Alert.Title>
-            <Alert.Description>Este saldo no representa dinero real.</Alert.Description>
-          </Alert.Content>
-        </Alert>
-
         <section aria-labelledby="balance-label">
           <Card className="gap-0 overflow-hidden p-0 shadow-sm">
             <div className="flex flex-col gap-5 bg-brand p-6 text-brand-foreground sm:p-8">
@@ -112,10 +104,7 @@ export default function MyWalletPage() {
                 )}
               </div>
             </div>
-
-            <p className="border-t border-border bg-surface px-6 py-4 text-sm text-muted sm:px-8">
-              Importe simulado disponible para futuras operaciones de inversión o retirada.
-            </p>
+          
           </Card>
         </section>
       </div>
