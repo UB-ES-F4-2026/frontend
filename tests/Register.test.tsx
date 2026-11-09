@@ -173,7 +173,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     for (const label of ["Contraseña", "Confirma la contraseña"]) {
       expect(screen.getByLabelText(label, { exact: true })).toHaveAttribute("type", "password");
     }
-    expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveAccessibleDescription("La contraseña debe tener entre 8 y 72 caracteres.");
+    expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveAccessibleDescription("La contraseña debe contener entre 8 y 72 carácteres.");
     expect(terms()).not.toBeChecked();
     expect(privacy()).not.toBeChecked();
     expect(screen.getByRole("button", { name: "Volver atrás" })).toBeInTheDocument();
@@ -291,6 +291,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     await user.click(privacy());
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
     expect(screen.getByLabelText("Confirma la contraseña")).toBeInvalid();
+    expect(screen.getByLabelText("Confirma la contraseña")).toHaveAccessibleDescription("Confirma tu contraseña.");
     expect(state.register).not.toHaveBeenCalled();
   });
 
@@ -302,30 +303,35 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     await user.click(missing === "condicions" ? privacy() : terms());
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
     expect(missing === "condicions" ? terms() : privacy()).toBeInvalid();
+    expect(missing === "condicions" ? terms() : privacy()).toHaveAccessibleDescription(
+      missing === "condicions" ? "Debes aceptar las condiciones de uso." : "Debes confirmar que has leído la política de privacidad.",
+    );
     expect(state.register).not.toHaveBeenCalled();
   });
 });
 
-// Regressió del contracte actual. ASCII i enviament de les dades noves corresponen a la #30.
+// Validacions de la #30 i regressió del registre amb el store simulat.
 describe("Register: comportament existent amb el store simulat", () => {
-  it.each(["1234567", "😀".repeat(7)])("rebutja menys de 8 caràcters: %s", async (password) => {
+  it.each(["1234567", "a".repeat(73)])("rebutja una longitud fora de 8–72 caràcters: %s", async (password) => {
     renderRegister();
     await submit(password);
-    expect(screen.getByRole("alert")).toHaveTextContent("La contraseña debe tener al menos 8 caracteres.");
+    expect(screen.getByLabelText("Contraseña", { exact: true })).toBeInvalid();
+    expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveAccessibleDescription(/La contraseña debe contener entre 8 y 72 carácteres/);
     expect(state.register).not.toHaveBeenCalled();
   });
 
-  it("rebutja contrasenyes que superen 72 bytes UTF-8", async () => {
+  it.each(["contraseña123", "password😀"])("rebutja caràcters fora d’ASCII: %s", async (password) => {
     renderRegister();
-    await submit("😀".repeat(19));
-    expect(screen.getByRole("alert")).toHaveTextContent("La contraseña es demasiado larga.");
+    await submit(password);
+    expect(screen.getByLabelText("Contraseña", { exact: true })).toBeInvalid();
+    expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveAccessibleDescription(/Usa solo caracteres ASCII/);
     expect(state.register).not.toHaveBeenCalled();
   });
 
-  it.each(["12345678", "😀".repeat(18)])("envia una contrasenya al límit del contracte actual: %s", async (password) => {
+  it.each(["12345678", "a".repeat(72), "   !aB12 ", "        "])("admet contrasenyes ASCII sense exigir combinacions ni retallar espais: %s", async (password) => {
     renderRegister();
     await submit(password);
-    expect(state.register).toHaveBeenCalledExactlyOnceWith({ email: personalData.email, first_name: personalData.firstName, last_name: personalData.lastName, phone: "+34612345678", password });
+    expect(state.register).toHaveBeenCalledExactlyOnceWith({ first_name: personalData.firstName, last_name: personalData.lastName, phone: "+34612345678", email: personalData.email, password });
   });
 
   it("no envia contrasenyes amb confirmació diferent", async () => {
@@ -336,7 +342,8 @@ describe("Register: comportament existent amb el store simulat", () => {
     await user.click(terms());
     await user.click(privacy());
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Las contraseñas no coinciden.");
+    expect(screen.getByLabelText("Confirma la contraseña")).toBeInvalid();
+    expect(screen.getByLabelText("Confirma la contraseña")).toHaveAccessibleDescription("Las contraseñas no coinciden.");
     expect(state.register).not.toHaveBeenCalled();
   });
 
@@ -474,5 +481,40 @@ describe("Register: validacions de la primera pantalla (#30)", () => {
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByLabelText("Contraseña", { exact: true })).toBeInTheDocument();
     expect(state.register).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("Register: errors recuperables de la segona pantalla (#30)", () => {
+  it("mostra tots els errors obligatoris i enfoca la contrasenya sense enviar dades", async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    await goToAccess(user);
+    await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
+    expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveAccessibleDescription(/Introduce una contraseña/);
+    expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveFocus();
+    expect(screen.getByLabelText("Confirma la contraseña")).toHaveAccessibleDescription("Confirma tu contraseña.");
+    expect(terms()).toHaveAccessibleDescription("Debes aceptar las condiciones de uso.");
+    expect(privacy()).toHaveAccessibleDescription("Debes confirmar que has leído la política de privacidad.");
+    expect(state.register).not.toHaveBeenCalled();
+  });
+
+  it("exige coincidència exacta, permet corregir i conserva la contrasenya amb els espais", async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    await goToAccess(user);
+    await fillAccess(user, " Password1 ", "Password1");
+    await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
+    expect(screen.getByLabelText("Confirma la contraseña")).toHaveAccessibleDescription("Las contraseñas no coinciden.");
+    expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveValue(" Password1 ");
+    expect(screen.getByLabelText("Confirma la contraseña")).toHaveFocus();
+    expect(state.register).not.toHaveBeenCalled();
+    await user.clear(screen.getByLabelText("Confirma la contraseña"));
+    await user.type(screen.getByLabelText("Confirma la contraseña"), " Password1 ");
+    await user.click(terms());
+    await user.click(privacy());
+    await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
+    expect(screen.queryByText("Las contraseñas no coinciden.")).not.toBeInTheDocument();
+    expect(state.register).toHaveBeenCalledExactlyOnceWith({ first_name: personalData.firstName, last_name: personalData.lastName, phone: "+34612345678", email: personalData.email, password: " Password1 " });
   });
 });
