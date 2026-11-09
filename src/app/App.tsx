@@ -5,6 +5,7 @@ import Login from "../pages/auth/Login";
 import Register from "../pages/auth/Register";
 import Header from "../components/Header";
 import Opportunities from "../pages/opportunities/Opportunities";
+import RealEstateDetail from "../pages/opportunities/real-estate/RealEstateDetail";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/opportunities" element={<Opportunities />} />
+          <Route path="/opportunities/real-estate/:id" element={<RealEstateDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
