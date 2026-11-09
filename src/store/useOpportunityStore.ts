@@ -72,7 +72,7 @@ interface OpportunityState {
   status: RequestStatus;
   details: string;
   opportunities: Opportunity[];
-  fetchOpportunities: () => Promise<void>;
+  fetchOpportunities: (term?: string | null) => Promise<void>;
   detailStatus: RequestStatus;
   detailId: number | null;
   detailDetails: string;
@@ -84,10 +84,14 @@ export const useOpportunityStore = create<OpportunityState>((set) => ({
     status: "loading",
     details: "",
     opportunities: [],
-    fetchOpportunities: async () => {
+    searchedOpportunities: [],
+    fetchOpportunities: async (term?: string | null) => {
         set({ status: "loading", details: "" });
         try {
             const data = await fintechGet<Opportunity[]>("/opportunities", {
+                params: {
+                    name: term
+                },
                 signal: AbortSignal.timeout(5000)
             });
             set({ status: "success", details: "", opportunities: data });
@@ -113,4 +117,26 @@ export const useOpportunityStore = create<OpportunityState>((set) => ({
             set({ detailStatus: "error", detailDetails: toErrorMessage(error), realEstateOpportunity: null });
         }
     },
+    // searchOpportunities: async (term : string) => {
+    //     set({ status: "loading", details: "" });
+    //     try {
+    //         const data = await fintechGet<Opportunity[]>("/opportunities", {
+    //             params: {
+    //                 name: term
+    //             },
+    //             signal: AbortSignal.timeout(5000)
+    //         });
+    //         set({ status: "success", details: "", opportunities: data });
+    //     } catch (error : unknown) {
+    //         let message = "Se ha producido un error desconocido.";
+
+    //         if (error instanceof ApiError) {
+    //             message = `${error.message} (HTTP ${error.status})`;
+    //         } else if (error instanceof Error) {
+    //             message = error.message;
+    //         }
+
+    //         set({ status: "error", details: message, opportunities: [] });
+    //     }
+    // }
 }));
