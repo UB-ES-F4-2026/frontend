@@ -49,15 +49,29 @@ describe("registre de useAuthStore aïllat de l’API", () => {
 
   it.each([
     ["409", new ApiError("Conflict", 409, null), "Ya existe una cuenta con este correo electrónico."],
-    ["422", new ApiError("Invalid", 422, null), "Revisa el correo y la contraseña."],
+    ["422", new ApiError("Invalid", 422, null), "Revisa los datos del formulario."],
     ["500", new ApiError("Server error", 500, null), "No se ha podido crear la cuenta."],
-    ["xarxa", new TypeError("Failed to fetch"), "No se ha podido crear la cuenta."],
+    ["xarxa", new TypeError("Failed to fetch"), "No se ha podido conectar con el servidor."],
   ])("retorna null i un missatge comprensible davant un error %s", async (_label, error, message) => {
     post.mockRejectedValue(error);
     expect(await useAuthStore.getState().register(registrationData)).toBeNull();
     expect(useAuthStore.getState().registrationStatus).toBe("error");
     expect(useAuthStore.getState().registrationDetails).toContain(message);
     expect(useAuthStore.getState().active_account).toBeNull();
+  });
+
+  it.each([
+    [422, { detail: [{ loc: ["body", "password"], msg: credentials.password, input: credentials.password, ctx: { value: credentials.password } },
+      { loc: ["body", "phone"], msg: credentials.password }, { loc: ["body", "phone"] }] }, "Revisa los siguientes campos: contraseña, teléfono."],
+    [422, { detail: [null, "invalid", { loc: ["body", credentials.password] }, { loc: ["body", "__proto__"] }] }, "Revisa los datos del formulario."],
+    [422, { detail: credentials.password }, "Revisa los datos del formulario."],
+    [500, { detail: credentials.password }, "No se ha podido crear la cuenta."],
+    [401, { detail: credentials.password }, "No se ha podido crear la cuenta."],
+  ])("tradueix l’error %s sense exposar text ni dades del servidor", async (status, details, expected) => {
+    post.mockRejectedValue(new ApiError(credentials.password, status, details));
+    expect(await useAuthStore.getState().register(registrationData)).toBeNull();
+    expect(useAuthStore.getState().registrationDetails).toContain(expected);
+    expect(useAuthStore.getState().registrationDetails).not.toContain(credentials.password);
   });
 
   it("permet reintentar el registre després d’un error", async () => {
