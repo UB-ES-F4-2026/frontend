@@ -14,6 +14,7 @@ import SectionTitle from "../common/OpportunitySectionTitle";
 import LocationMap from "../common/OpportunityLocationMap";
 import { useNow } from "../../../hooks/useNow";
 import { useAuthStore } from "../../../store/useAuthStore";
+import OpportunityInvestmentButton from "../common/OpportunityInvestmentButton";
 
 /* -------------------------------------------------------------------------- */
 /*  Formato                                                                   */
@@ -239,18 +240,11 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
                 </div>
               )}
             </dl>
-            <dl className="mt-5 flex flex-col items-center gap-3 border-t border-border pt-4">
-              <Button
-                isDisabled={investmentButtonDisabled}
-                className="min-h-12 w-full rounded-md bg-warning text-base"
-                onClick={handleInvestmentButton}
-              >
-                Quiero invertir
-              </Button>
-              <p className="flex items-start gap-3 rounded-xl border border-border bg-slate-100/70 px-[14px] py-[12px] text-xs text-muted">
-                <Icon name="info" className="mt-0.5 shrink-0 text-foreground" size={18}/>
-                Puede invertir en esta iniciativa siempre que no se haya alcanzado el capital objetivo y no haya finalizado el plazo de financiación.
-              </p>
+            <dl className="mt-5 border-t border-border pt-4">
+              <OpportunityInvestmentButton 
+                disabled={investmentButtonDisabled} 
+                investmentHandler={handleInvestmentButton} 
+              />
             </dl>
           </Card>
         </div>
