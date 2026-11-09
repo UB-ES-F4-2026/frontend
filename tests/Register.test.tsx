@@ -95,7 +95,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(phone).toHaveAttribute("aria-invalid", "true");
     await user.type(phone, "8");
-    expect(phone).toHaveAttribute("aria-invalid", "false");
+    expect(phone).toBeValid();
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await fillAccess(user);
     await user.click(terms());
@@ -156,6 +156,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     await fillPersonalData(user, "correu-invalid");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByLabelText("Correo electrónico")).toBeInvalid();
+    expect(screen.getByLabelText("Correo electrónico")).toHaveAccessibleDescription("Introduce un correo electrónico válido.");
     expect(screen.queryByLabelText("Contraseña", { exact: true })).not.toBeInTheDocument();
     expect(state.register).not.toHaveBeenCalled();
   });
@@ -402,5 +403,76 @@ describe("Register: comportament existent amb el store simulat", () => {
       finish({ id: 1, email: personalData.email, created_at: "2026-10-17T10:00:00Z" });
     });
     expect(await screen.findByRole("heading", { name: "Inicio de sesión simulado" })).toBeInTheDocument();
+  });
+});
+
+
+describe("Register: validacions de la primera pantalla (#30)", () => {
+  it("mostra errors independents, enfoca el primer camp i permet corregir sense perdre dades", async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    await fillPersonalData(user);
+    for (const label of ["Nombre", "Apellidos"]) {
+      await user.clear(screen.getByLabelText(label, { exact: true }));
+      await user.type(screen.getByLabelText(label, { exact: true }), "Nom123");
+    }
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    for (const label of ["Nombre", "Apellidos"]) {
+      expect(screen.getByLabelText(label, { exact: true })).toBeInvalid();
+      expect(screen.getByLabelText(label, { exact: true })).toHaveAccessibleDescription("Usa solo letras, espacios, apóstrofos y guiones.");
+    }
+    expect(screen.getByLabelText("Nombre", { exact: true })).toHaveFocus();
+    expect(screen.getByLabelText("Correo electrónico")).toHaveValue(personalData.email);
+    expect(screen.getByLabelText("Número", { exact: true })).toHaveValue(personalData.phone);
+    expect(screen.queryByLabelText("Contraseña", { exact: true })).not.toBeInTheDocument();
+    expect(state.register).not.toHaveBeenCalled();
+
+    await user.clear(screen.getByLabelText("Nombre", { exact: true }));
+    await user.type(screen.getByLabelText("Nombre", { exact: true }), "  María del Mar  ");
+    await user.clear(screen.getByLabelText("Apellidos"));
+    await user.type(screen.getByLabelText("Apellidos"), "  O'Connor-López  ");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByLabelText("Contraseña", { exact: true })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Volver atrás" }));
+    expect(screen.getByLabelText("Nombre", { exact: true })).toHaveValue("María del Mar");
+    expect(screen.getByLabelText("Apellidos")).toHaveValue("O'Connor-López");
+    expect(screen.getByLabelText("Número", { exact: true })).toHaveValue(personalData.phone);
+    expect(state.register).not.toHaveBeenCalled();
+  });
+
+  it("bloqueja un telèfon curt, mostra l’error associat i admet corregir-lo amb el prefix complet", async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    await fillPersonalData(user);
+    const number = screen.getByLabelText("Número", { exact: true });
+    await user.clear(number);
+    await user.type(number, "612 345");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(number).toBeInvalid();
+    expect(number).toHaveAccessibleDescription(/El número de España debe tener 9 dígitos/);
+    expect(screen.queryByLabelText("Contraseña", { exact: true })).not.toBeInTheDocument();
+    expect(state.register).not.toHaveBeenCalled();
+    await user.clear(number);
+    await user.type(number, "+34 612 345 678");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(screen.getByRole("button", { name: "Volver atrás" }));
+    expect(screen.getByLabelText("Número", { exact: true })).toHaveValue("+34 612 345 678");
+    expect(state.register).not.toHaveBeenCalled();
+  });
+
+  it("revalida un número enganxat amb el país seleccionat sense esborrar-lo", async () => {
+    renderRegister();
+    const user = userEvent.setup();
+    await fillPersonalData(user);
+    await user.clear(screen.getByLabelText("Número", { exact: true }));
+    await user.type(screen.getByLabelText("Número", { exact: true }), "+33 612 345 678");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByLabelText("Número", { exact: true })).toHaveAccessibleDescription(/El prefijo del número debe coincidir/);
+    await user.click(screen.getByRole("button", { name: /País y prefijo/ }));
+    await user.click(screen.getByRole("option", { name: "Francia (+33)" }));
+    expect(screen.getByLabelText("Número", { exact: true })).toHaveValue("+33 612 345 678");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByLabelText("Contraseña", { exact: true })).toBeInTheDocument();
+    expect(state.register).not.toHaveBeenCalled();
   });
 });
