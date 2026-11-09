@@ -40,15 +40,75 @@ const buildOpportunity = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+// Envolvemos en MemoryRouter porque OpportunityCard podría usar enlaces internamente en el futuro,
+// y para mantener la consistencia con el resto de tests.
+const page = () => (
+  <MemoryRouter>
+    <Opportunities />
+  </MemoryRouter>
+);
+
 function renderOpportunities() {
-  // Envolvemos en MemoryRouter porque OpportunityCard podría usar enlaces internamente en el futuro,
-  // y para mantener la consistencia con el resto de tests.
-  return render(
-    <MemoryRouter>
-      <Opportunities />
-    </MemoryRouter>,
-  );
+  return render(page());
 }
+
+// --- Simulación de la búsqueda difusa del backend -------------------------------------------
+// El componente no calcula distancias: delega en el backend vía fetchOpportunities(term).
+// Para probar la UI con datos realistas simulamos esa regla: un nombre es válido si su
+// distancia de Levenshtein respecto al término buscado es <= 3.
+const MAX_LEVENSHTEIN_DISTANCE = 3;
+
+const levenshtein = (a: string, b: string) => {
+  const dp: number[][] = Array.from({ length: a.length + 1 }, (_, i) => {
+    const row = new Array<number>(b.length + 1).fill(0);
+    row[0] = i;
+    return row;
+  });
+  for (let j = 1; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+  }
+  return dp[a.length][b.length];
+};
+
+const matchesName = (title: string, term: string) =>
+  levenshtein(title.toLowerCase(), term.toLowerCase()) <= MAX_LEVENSHTEIN_DISTANCE;
+
+const EDIFICIO = buildOpportunity({
+  id: 1,
+  type: "real_estate",
+  title: "Edificio Histórico L'Eixample",
+  location: "Barcelona",
+});
+
+const STARTUP = buildOpportunity({
+  id: 2,
+  type: "equity",
+  title: "Startup EcoLogistics SL",
+  location: "Valencia",
+});
+
+// Distancia exacta respecto a "Startup EcoLogistics SL"
+const TERM_DISTANCE_3 = "Startp EcoLogistcs S"; // 3 borrados: u, i, L
+const TERM_DISTANCE_4 = "Startp EcoLogstcs S"; // 4 borrados: u, i, i, L
+
+// Sustituye fetchOpportunities por un "backend" que filtra el catálogo según el término.
+const installFakeBackend = (catalog: ReturnType<typeof buildOpportunity>[]) => {
+  state.status = "success";
+  state.opportunities = catalog;
+  state.fetchOpportunities.mockImplementation((term?: string | null) => {
+    state.status = "success";
+    state.opportunities = term
+      ? catalog.filter((item) => matchesName(item.title, term))
+      : catalog;
+  });
+};
 
 const getSearchInput = () =>
   screen.getByPlaceholderText("Buscar oportunidades...") as HTMLInputElement;
@@ -193,8 +253,8 @@ describe("Opportunities", () => {
       ];
       renderOpportunities();
 
-      expect(screen.getByText("Inmobiliario")).toBeInTheDocument();
-      expect(screen.getByText("Startup")).toBeInTheDocument();
+      expect(screen.getByText("Inmobiliaria")).toBeInTheDocument();
+      expect(screen.getByText("Empresarial")).toBeInTheDocument();
     });
 
     it("muestra el progreso de financiación y los días restantes", () => {
@@ -397,6 +457,216 @@ describe("Opportunities", () => {
 
       expect(getSearchInput()).toBeInTheDocument();
       expect(getSearchButton()).toBeInTheDocument();
+    });
+  });
+
+  describe("mensaje cuando no hay resultados (fallback)", () => {
+    const NO_PUBLISHED = "¡Aún no hay oportunidades publicadas!";
+    const NO_SEARCH_MATCH =
+      "No se encontraron oportunidades que coincidan con los criterios de búsqueda.";
+
+    it("sin haber buscado, muestra el mensaje de 'no hay oportunidades publicadas'", () => {
+      state.status = "success";
+      state.opportunities = [];
+      renderOpportunities();
+
+      expect(screen.getByText(NO_PUBLISHED)).toBeInTheDocument();
+      expect(screen.queryByText(NO_SEARCH_MATCH)).not.toBeInTheDocument();
+    });
+
+    it("tras buscar un término sin resultados, muestra el mensaje de búsqueda sin coincidencias", async () => {
+      const user = userEvent.setup();
+      state.status = "success";
+      state.opportunities = [];
+      renderOpportunities();
+
+      await user.type(getSearchInput(), "Zzzzzzzzzz");
+      await user.click(getSearchButton());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Zzzzzzzzzz");
+      expect(screen.getByText(NO_SEARCH_MATCH)).toBeInTheDocument();
+      expect(screen.queryByText(NO_PUBLISHED)).not.toBeInTheDocument();
+    });
+
+    it("también muestra el mensaje de búsqueda sin coincidencias al buscar con Enter", async () => {
+      const user = userEvent.setup();
+      state.status = "success";
+      state.opportunities = [];
+      renderOpportunities();
+
+      await user.type(getSearchInput(), "Zzzzzzzzzz{Enter}");
+
+      expect(screen.getByText(NO_SEARCH_MATCH)).toBeInTheDocument();
+      expect(screen.queryByText(NO_PUBLISHED)).not.toBeInTheDocument();
+    });
+
+    it("buscar con el campo vacío NO activa el mensaje de búsqueda sin coincidencias", async () => {
+      const user = userEvent.setup();
+      state.status = "success";
+      state.opportunities = [];
+      renderOpportunities();
+
+      await user.click(getSearchButton());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("");
+      expect(screen.getByText(NO_PUBLISHED)).toBeInTheDocument();
+      expect(screen.queryByText(NO_SEARCH_MATCH)).not.toBeInTheDocument();
+    });
+
+    it("ningún mensaje de fallback se muestra si hay oportunidades", async () => {
+      const user = userEvent.setup();
+      state.status = "success";
+      state.opportunities = [EDIFICIO];
+      renderOpportunities();
+
+      await user.type(getSearchInput(), "Edificio");
+      await user.click(getSearchButton());
+
+      expect(screen.queryByText(NO_PUBLISHED)).not.toBeInTheDocument();
+      expect(screen.queryByText(NO_SEARCH_MATCH)).not.toBeInTheDocument();
+    });
+
+    it("tras una búsqueda, el estado 'error' muestra el error y no el fallback", async () => {
+      const user = userEvent.setup();
+      state.status = "success";
+      state.opportunities = [];
+      const view = renderOpportunities();
+
+      await user.type(getSearchInput(), "Zzzzzzzzzz");
+      await user.click(getSearchButton());
+      expect(screen.getByText(NO_SEARCH_MATCH)).toBeInTheDocument();
+
+      state.status = "error";
+      state.details = "Error de conexión con el servidor.";
+      view.rerender(page());
+
+      expect(
+        screen.getByText("Error de conexión con el servidor."),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(NO_SEARCH_MATCH)).not.toBeInTheDocument();
+      expect(screen.queryByText(NO_PUBLISHED)).not.toBeInTheDocument();
+    });
+
+    it.todo(
+      "tras una búsqueda sin resultados, al limpiar el campo y recargar el listado vacío vuelve a mostrarse 'no hay oportunidades publicadas'",
+    );
+  });
+
+  describe("contador de oportunidades encontradas", () => {
+    it("muestra 0 cuando no hay oportunidades", () => {
+      state.status = "success";
+      state.opportunities = [];
+      renderOpportunities();
+
+      expect(screen.getByText("0 oportunidades encontradas")).toBeInTheDocument();
+    });
+
+    it("muestra el número de oportunidades del listado", () => {
+      state.status = "success";
+      state.opportunities = [EDIFICIO, STARTUP];
+      renderOpportunities();
+
+      expect(screen.getByText("2 oportunidades encontradas")).toBeInTheDocument();
+    });
+
+    it("con una sola oportunidad muestra el contador con valor 1", () => {
+      state.status = "success";
+      state.opportunities = [EDIFICIO];
+      renderOpportunities();
+
+      // Admite tanto "1 oportunidades encontradas" como la versión en singular.
+      expect(
+        screen.getByText(/^1 oportunidad(es)? encontrad(a|as)$/),
+      ).toBeInTheDocument();
+    });
+
+    it("el contador se mantiene visible mientras se carga", () => {
+      state.status = "loading";
+      renderOpportunities();
+
+      expect(screen.getByTestId("opportunities-skeleton")).toBeInTheDocument();
+      expect(screen.getByText("0 oportunidades encontradas")).toBeInTheDocument();
+    });
+  });
+
+  describe("búsqueda por nombre con tolerancia (distancia de Levenshtein <= 3)", () => {
+    it("los términos de prueba tienen la distancia esperada", () => {
+      expect(levenshtein("Startup EcoLogistics SL", TERM_DISTANCE_3)).toBe(3);
+      expect(levenshtein("Startup EcoLogistics SL", TERM_DISTANCE_4)).toBe(4);
+    });
+
+    it("un término a distancia 0 (nombre exacto) devuelve la oportunidad", async () => {
+      const user = userEvent.setup();
+      installFakeBackend([EDIFICIO, STARTUP]);
+      const view = renderOpportunities();
+
+      await user.type(getSearchInput(), "Startup EcoLogistics SL");
+      await user.click(getSearchButton());
+      view.rerender(page());
+
+      expect(screen.getByText("Startup EcoLogistics SL")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Edificio Histórico L'Eixample"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("un término a distancia 3 se considera válido y muestra la oportunidad", async () => {
+      const user = userEvent.setup();
+      installFakeBackend([EDIFICIO, STARTUP]);
+      const view = renderOpportunities();
+
+      // Antes de buscar se ven ambas
+      expect(screen.getByText("2 oportunidades encontradas")).toBeInTheDocument();
+
+      await user.type(getSearchInput(), TERM_DISTANCE_3);
+      await user.click(getSearchButton());
+      view.rerender(page());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith(TERM_DISTANCE_3);
+      expect(screen.getByText("Startup EcoLogistics SL")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Edificio Histórico L'Eixample"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/^1 oportunidad(es)? encontrad(a|as)$/),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText(/No se encontraron oportunidades/),
+      ).not.toBeInTheDocument();
+    });
+
+    it("un término a distancia 4 NO es válido y muestra el mensaje de búsqueda sin coincidencias", async () => {
+      const user = userEvent.setup();
+      installFakeBackend([EDIFICIO, STARTUP]);
+      const view = renderOpportunities();
+
+      await user.type(getSearchInput(), TERM_DISTANCE_4);
+      await user.click(getSearchButton());
+      view.rerender(page());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith(TERM_DISTANCE_4);
+      expect(screen.queryByText("Startup EcoLogistics SL")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Edificio Histórico L'Eixample"),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText("0 oportunidades encontradas")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "No se encontraron oportunidades que coincidan con los criterios de búsqueda.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("la búsqueda no distingue mayúsculas de minúsculas", async () => {
+      const user = userEvent.setup();
+      installFakeBackend([EDIFICIO, STARTUP]);
+      const view = renderOpportunities();
+
+      await user.type(getSearchInput(), "STARTUP ECOLOGISTICS SL");
+      await user.click(getSearchButton());
+      view.rerender(page());
+
+      expect(screen.getByText("Startup EcoLogistics SL")).toBeInTheDocument();
     });
   });
 });
