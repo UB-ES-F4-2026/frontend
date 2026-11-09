@@ -1,7 +1,7 @@
-import { Button } from "@heroui/react";
+import { Button, Label } from "@heroui/react";
 import { useOpportunityStore } from "../../store/useOpportunityStore";
-import { useEffect } from "react";
 import OpportunityCard from "./common/OpportunityCard";
+import { useEffect, useState } from "react";
 import OpportunitiesSkeleton from "./OpportunitiesSkeleton";
 import SearchOpportunities from "./SearchOpportunities";
 
@@ -13,11 +13,16 @@ const Opportunities = () => {
     fetchOpportunities,
   } = useOpportunityStore();
 
+  const [fromSearch, setFromSearch] = useState(false); 
+
   useEffect(() => {
     fetchOpportunities();
   }, [fetchOpportunities]);
 
   const onSearchHandler = (term: string) => {
+    if(term.length > 0) {
+      setFromSearch(true);
+    }
     fetchOpportunities(term);
   };
 
@@ -36,10 +41,12 @@ const Opportunities = () => {
 
       <SearchOpportunities onSearchHandler={onSearchHandler} />
 
+      <Label>{opportunities.length} oportunidades encontradas</Label>
+
       {status === "loading" && <OpportunitiesSkeleton />}
 
       {status === "error" && (
-        <div className="flex flex-col items-start gap-3 rounded-[12px] border border-line bg-white p-6">
+        <div className="flex flex-col items-start gap-3 rounded-[12px] border border-line bg-white p-6 mt-3">
           <p className="text-sm text-danger">{details}</p>
           <Button variant="secondary" onPress={() => fetchOpportunities()}>
             Reintentar
@@ -49,11 +56,15 @@ const Opportunities = () => {
 
       {status === "success" &&
         (opportunities.length === 0 ? (
-          <div className="rounded-[12px] border border-line bg-white p-8 text-center">
-            <p className="text-sm text-muted">¡Aún no hay oportunidades publicadas!</p>
+          <div className="rounded-[12px] border border-line bg-white p-8 text-center mt-3">
+            <p className="text-sm text-muted">
+              {fromSearch ? 
+                "No se encontraron oportunidades que coincidan con los criterios de búsqueda." : 
+                "¡Aún no hay oportunidades publicadas!"}
+            </p>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-3">
             {opportunities.map((item) => (
               <OpportunityCard key={item.id} opportunity={item} />
             ))}
