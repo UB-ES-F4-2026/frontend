@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { Button, Card } from "@heroui/react";
 import {
   useOpportunityStore,
@@ -13,6 +13,7 @@ import Fact from "../common/OpportunityFact";
 import SectionTitle from "../common/OpportunitySectionTitle";
 import LocationMap from "../common/OpportunityLocationMap";
 import { useNow } from "../../../hooks/useNow";
+import { useAuthStore } from "../../../store/useAuthStore";
 
 /* -------------------------------------------------------------------------- */
 /*  Formato                                                                   */
@@ -124,6 +125,7 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
   const fundingClosed = now >= new Date(opportunity.deadline).getTime();
 
   const { intro, summary } = splitDescription(opportunity.description);
+  const investmentButtonDisabled = opportunity.committed_cents >= opportunity.target_amount_cents || fundingClosed;
   
   let galleryImages: GalleryImage[] = [];
   if(real_estate.images && real_estate.images.length > 0) {
@@ -147,6 +149,12 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
     { label: "Finalización estimada de las obras", date: real_estate.estimated_works_end },
     { label: "Inicio estimado del alquiler", date: real_estate.estimated_rental_start },
   ].filter((item): item is { label: string; date: string } => item.date !== null);
+
+  const handleInvestmentButton = () => {
+    if(!investmentButtonDisabled){
+      alert("Funcionalidad de inversión disponible en futuras iteraciones.")
+    }
+  };
 
   return (
     <div className="mx-auto w-full max-w-[1240px] px-5 pt-5 pb-14 sm:px-10">
@@ -181,7 +189,7 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
               {fundingClosed ? "Plazo finalizado" : "En financiación"}
             </span>
 
-            <p className="mt-5 text-xs text-muted">Capital comprometido</p>
+            <p className="mt-4 text-xs text-muted">Capital comprometido</p>
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
                 {formatCents(opportunity.committed_cents)}
@@ -191,7 +199,7 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
               </span>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-xs text-muted">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-muted">
               <span>Objetivo de financiación</span>
               <strong className="text-foreground">{formatCents(opportunity.target_amount_cents)}</strong>
             </div>
@@ -208,7 +216,7 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
             </div>
             <p className="text-sm font-semibold text-foreground">{percentLabel} del objetivo</p>
 
-            <dl className="mt-7 flex flex-col gap-7 border-t border-border pt-7">
+            <dl className="mt-4 flex flex-col gap-6 border-t border-border pt-5">
               <div className="relative pl-[34px]">
                 <Icon name="calendar" className="absolute top-0.5 left-0 text-foreground" />
                 <dt className="text-xs text-muted">Fecha límite de financiación</dt>
@@ -230,6 +238,19 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
                   </dd>
                 </div>
               )}
+            </dl>
+            <dl className="mt-5 flex flex-col items-center gap-3 border-t border-border pt-4">
+              <Button
+                isDisabled={investmentButtonDisabled}
+                className="min-h-12 w-full rounded-md bg-warning text-base"
+                onClick={handleInvestmentButton}
+              >
+                Quiero invertir
+              </Button>
+              <p className="flex items-start gap-3 rounded-xl border border-border bg-slate-100/70 px-[14px] py-[12px] text-xs text-muted">
+                <Icon name="info" className="mt-0.5 shrink-0 text-foreground" size={18}/>
+                Puede invertir en esta iniciativa siempre que no se haya alcanzado el capital objetivo y no haya finalizado el plazo de financiación.
+              </p>
             </dl>
           </Card>
         </div>
@@ -414,10 +435,20 @@ const RealEstateDetail = () => {
   const fetchRealEstateOpportunity = useOpportunityStore(
     (state) => state.fetchRealEstateOpportunity,
   );
+  const navigate = useNavigate();
+
+  const account = useAuthStore((state) => state.active_account);
+  const isAuthLoading = useAuthStore((state) => state.status);
 
   useEffect(() => {
     if (isValidRoute) void fetchRealEstateOpportunity(id);
   }, [fetchRealEstateOpportunity, isValidRoute, id]);
+
+  useEffect(() => {
+    if (isAuthLoading !== 'idle' && !account) {
+      navigate('/login');
+    }
+  }, [account]);
 
   if (!isValidRoute) {
     return (
