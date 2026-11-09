@@ -18,8 +18,8 @@ const Opportunities = () => {
   }, [fetchOpportunities]);
 
   const onSearchHandler = (term: string) => {
-    alert("A implementar en la siguiente tarea");
-  }
+    fetchOpportunities(term);
+  };
 
   return (
     <div className="mx-auto w-full max-w-[1240px] px-5 py-10 sm:px-10">
@@ -41,7 +41,7 @@ const Opportunities = () => {
       {status === "error" && (
         <div className="flex flex-col items-start gap-3 rounded-[12px] border border-line bg-white p-6">
           <p className="text-sm text-danger">{details}</p>
-          <Button variant="secondary" onPress={fetchOpportunities}>
+          <Button variant="secondary" onPress={() => fetchOpportunities()}>
             Reintentar
           </Button>
         </div>
