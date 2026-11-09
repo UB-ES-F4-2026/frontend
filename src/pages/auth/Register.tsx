@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Alert, Button, Checkbox, Input, Label, ListBox, Select, Spinner, TextField } from "@heroui/react";
+import { Alert, Button, Checkbox, FieldError, Input, Label, ListBox, Select, Spinner, TextField } from "@heroui/react";
 import { Link, useNavigate } from "react-router";
 import { phoneCountries } from "./phoneCountries";
+import { normalizePhone, validatePersonalDetails } from "./validatePersonalDetails";
+import type { PersonalDetailsErrors } from "./validatePersonalDetails";
 import registrationTeam from "../../assets/equip-thirdman.jpg";
 import { useAuthStore } from "../../store/useAuthStore";
 
@@ -16,7 +18,6 @@ const Register = () => {
   const [lastName, setLastName] = useState("");
   const [phoneCountry, setPhoneCountry] = useState("ES");
   const [phone, setPhone] = useState("");
-  const [phoneError, setPhoneError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,6 +27,10 @@ const Register = () => {
   const [readPrivacy, setReadPrivacy] = useState(false);
   // La pàgina conserva les dades del formulari; el store gestiona la petició.
   const [validationError, setValidationError] = useState("");
+  const [personalErrors, setPersonalErrors] = useState<PersonalDetailsErrors>({});
+  const clearPersonalError = (field: keyof PersonalDetailsErrors) => {
+    setPersonalErrors((errors) => ({ ...errors, [field]: undefined }));
+  };
   const status = useAuthStore((state) => state.registrationStatus);
   const details = useAuthStore((state) => state.registrationDetails);
   const register = useAuthStore((state) => state.register);
@@ -48,31 +53,19 @@ const Register = () => {
     setValidationError("");
     resetRegistration();
 
-    const country = phoneCountries.find((country) => country.code === phoneCountry);
-    const compactPhone = phone.replace(/\s/g, "");
-    let normalizedPhone = "";
-    let phoneMessage = "";
-    if (!country || !/^\+?[0-9]+$/.test(compactPhone)) {
-      phoneMessage = "Introduce un número válido, solo con dígitos y espacios.";
-    } else if (compactPhone.startsWith("+") && !compactPhone.startsWith(country.prefix)) {
-      phoneMessage = "El prefijo del número debe coincidir con el país seleccionado.";
-    } else {
-      const nationalNumber = compactPhone.startsWith("+") ? compactPhone.slice(country.prefix.length) : compactPhone;
-      normalizedPhone = `${country.prefix}${nationalNumber}`;
-      if (!nationalNumber || !/^\+[1-9][0-9]{1,14}$/.test(normalizedPhone)) {
-        phoneMessage = "Introduce un número válido de hasta 15 dígitos, incluido el prefijo.";
-      } else if (country.code === "ES" && nationalNumber.length !== 9) {
-        phoneMessage = "El número de España debe tener exactamente 9 dígitos sin el prefijo.";
-      }
-    }
-    setPhoneError(phoneMessage);
-    if (phoneMessage) {
-      setStep(1);
-      return;
-    }
-
     // Avançar de pas no envia cap petició al backend.
     if (step === 1) {
+      const errors = validatePersonalDetails({ first_name: firstName, last_name: lastName, email, phone_country: phoneCountry, phone });
+      setPersonalErrors(errors);
+      const firstInvalidField = Object.keys(errors)[0];
+      if (firstInvalidField) {
+        const input = event.currentTarget.elements.namedItem(firstInvalidField);
+        if (input instanceof HTMLElement) input.focus();
+        return;
+      }
+      setFirstName(firstName.trim());
+      setLastName(lastName.trim());
+      setEmail(email.trim());
       setStep(2);
       return;
     }
@@ -95,6 +88,13 @@ const Register = () => {
     }
 
     // El store crida el servei d’API i retorna l’usuari creat o null si falla.
+    const country = phoneCountries.find(({ code }) => code === phoneCountry);
+    if (!country) {
+      setPersonalErrors({ phone_country: "Selecciona un país y prefijo." });
+      setStep(1);
+      return;
+    }
+    const normalizedPhone = normalizePhone(phone, country.prefix);
     const user = await register({ email, password, first_name: firstName.trim(), last_name: lastName.trim(), phone: normalizedPhone });
     // Només sortim del formulari quan el servidor confirma la creació del compte.
     if (user) navigate("/login", { replace: true });
@@ -137,16 +137,16 @@ const Register = () => {
             </p>
           </header>
           <div>
-            <form onSubmit={handleSubmit} aria-label="Crear mi cuenta" aria-busy={isSubmitting} className="flex flex-col gap-3">
-              {/* El navegador valida el camp obligatori i el format bàsic del correu. */}
+            <form noValidate={step === 1} onSubmit={handleSubmit} aria-label="Crear mi cuenta" aria-busy={isSubmitting} className="flex flex-col gap-3">
+              {/* Els errors locals es mostren sota cada camp abans de poder avançar. */}
               {step === 1 && (
                 <>
                   <div className="grid min-w-0 grid-cols-1 gap-3">
                     {[
-                      { name: "first_name", label: "Nombre", autoComplete: "given-name", placeholder: "Tu nombre", value: firstName, setValue: setFirstName },
-                      { name: "last_name", label: "Apellidos", autoComplete: "family-name", placeholder: "Tus apellidos", value: lastName, setValue: setLastName },
+                      { name: "first_name" as const, label: "Nombre", autoComplete: "given-name", placeholder: "Tu nombre", value: firstName, setValue: setFirstName },
+                      { name: "last_name" as const, label: "Apellidos", autoComplete: "family-name", placeholder: "Tus apellidos", value: lastName, setValue: setLastName },
                     ].map((field) => (
-                      <TextField key={field.name} name={field.name} isRequired isDisabled={isSubmitting} className="min-w-0">
+                      <TextField key={field.name} name={field.name} validationBehavior="aria" isInvalid={!!personalErrors[field.name]} isRequired isDisabled={isSubmitting} className="min-w-0">
                         <Label className="text-sm font-medium text-foreground/90">{field.label}</Label>
                         <Input
                           className="h-10 w-full min-w-0 rounded-xl border border-foreground/15 bg-background px-4 text-foreground shadow-none placeholder:text-foreground/40 focus:border-warning focus:ring-2 focus:ring-warning/30"
@@ -155,12 +155,13 @@ const Register = () => {
                           placeholder={field.placeholder}
                           required
                           value={field.value}
-                          onChange={(event) => field.setValue(event.target.value)}
+                          onChange={(event) => { field.setValue(event.target.value); clearPersonalError(field.name); }}
                         />
+                        <FieldError>{personalErrors[field.name]}</FieldError>
                       </TextField>
                     ))}
                   </div>
-                  <TextField name="email" type="email" isRequired isDisabled={isSubmitting}>
+                  <TextField name="email" type="email" validationBehavior="aria" isInvalid={!!personalErrors.email} isRequired isDisabled={isSubmitting}>
                     <Label className="text-sm font-medium text-foreground/90">Correo electrónico</Label>
                     <Input
                       className="h-10 rounded-xl border border-foreground/15 bg-background px-4 text-foreground shadow-none placeholder:text-foreground/40 focus:border-warning focus:ring-2 focus:ring-warning/30"
@@ -170,16 +171,15 @@ const Register = () => {
                       placeholder="nombre@ejemplo.com"
                       required
                       value={email}
-                      onChange={(event) => setEmail(event.target.value)}
+                      onChange={(event) => { setEmail(event.target.value); clearPersonalError("email"); }}
                     />
+                    <FieldError>{personalErrors.email}</FieldError>
                   </TextField>
                   <fieldset className="min-w-0">
                     <legend className="sr-only">Número de teléfono</legend>
                     <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
-                      <Select name="phone_country" value={phoneCountry} onChange={(value) => {
-                        setPhoneCountry(String(value));
-                        setPhoneError("");
-                      }}
+                      <Select name="phone_country" value={phoneCountry} onChange={(value) => { setPhoneCountry(String(value)); clearPersonalError("phone_country"); clearPersonalError("phone"); }}
+                        validationBehavior="aria" isInvalid={!!personalErrors.phone_country}
                         isRequired isDisabled={isSubmitting} className="min-w-0">
                         <Label className="text-sm font-medium text-foreground/90">País y prefijo</Label>
                         <Select.Trigger className="h-10 min-h-10 w-full min-w-0 rounded-xl border border-foreground/15 bg-background px-3 text-foreground shadow-none focus-visible:outline-warning">
@@ -195,8 +195,9 @@ const Register = () => {
                             ))}
                           </ListBox>
                         </Select.Popover>
+                        <FieldError>{personalErrors.phone_country}</FieldError>
                       </Select>
-                      <TextField name="phone" type="tel" isInvalid={Boolean(phoneError)} isRequired isDisabled={isSubmitting} className="min-w-0">
+                      <TextField name="phone" type="tel" validationBehavior="aria" isInvalid={!!personalErrors.phone} isRequired isDisabled={isSubmitting} className="min-w-0">
                         <Label className="text-sm font-medium text-foreground/90">Número</Label>
                         <Input
                           className="h-10 w-full min-w-0 rounded-xl border border-foreground/15 bg-background px-4 text-foreground shadow-none placeholder:text-foreground/40 focus:border-warning focus:ring-2 focus:ring-warning/30"
@@ -205,17 +206,13 @@ const Register = () => {
                           autoComplete="tel-national"
                           placeholder={phoneCountry === "ES" ? "612 345 678" : "Número sin prefijo"}
                           required
-                          aria-describedby={phoneError ? "register-phone-help register-phone-error" : "register-phone-help"}
-                          aria-invalid={Boolean(phoneError)}
+                          aria-describedby={personalErrors.phone ? "register-phone-help register-phone-error" : "register-phone-help"}
                           value={phone}
-                          onChange={(event) => {
-                            setPhone(event.target.value);
-                            setPhoneError("");
-                          }}
+                          onChange={(event) => { setPhone(event.target.value); clearPersonalError("phone"); }}
                         />
+                        <FieldError id="register-phone-error">{personalErrors.phone}</FieldError>
                       </TextField>
                     </div>
-                    {phoneError && <p id="register-phone-error" role="alert" className="mt-2 text-xs text-danger">{phoneError}</p>}
                     <p id="register-phone-help" className="mt-2 text-xs leading-relaxed text-foreground/65">
                       Introduce el número sin el prefijo internacional.
                     </p>
