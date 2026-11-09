@@ -5,6 +5,8 @@ import { Link, useNavigate } from "react-router";
 import { phoneCountries } from "./phoneCountries";
 import { normalizePhone, validatePersonalDetails } from "./validatePersonalDetails";
 import type { PersonalDetailsErrors } from "./validatePersonalDetails";
+import { validateAccessDetails } from "./validateAccessDetails";
+import type { AccessDetailsErrors } from "./validateAccessDetails";
 import registrationTeam from "../../assets/equip-thirdman.jpg";
 import { useAuthStore } from "../../store/useAuthStore";
 
@@ -26,7 +28,10 @@ const Register = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [readPrivacy, setReadPrivacy] = useState(false);
   // La pàgina conserva les dades del formulari; el store gestiona la petició.
-  const [validationError, setValidationError] = useState("");
+  const [accessErrors, setAccessErrors] = useState<AccessDetailsErrors>({});
+  const clearAccessError = (field: keyof AccessDetailsErrors) => {
+    setAccessErrors((errors) => ({ ...errors, [field]: undefined }));
+  };
   const [personalErrors, setPersonalErrors] = useState<PersonalDetailsErrors>({});
   const clearPersonalError = (field: keyof PersonalDetailsErrors) => {
     setPersonalErrors((errors) => ({ ...errors, [field]: undefined }));
@@ -36,7 +41,7 @@ const Register = () => {
   const register = useAuthStore((state) => state.register);
   const resetRegistration = useAuthStore((state) => state.resetRegistration);
   const isSubmitting = status === "loading";
-  const error = validationError || details;
+  const error = details;
 
   useEffect(() => {
     resetRegistration();
@@ -50,7 +55,6 @@ const Register = () => {
     // Gestionem l’enviament amb JavaScript perquè el navegador no recarregui la pàgina.
     event.preventDefault();
     if (isSubmitting) return;
-    setValidationError("");
     resetRegistration();
 
     // Avançar de pas no envia cap petició al backend.
@@ -70,20 +74,12 @@ const Register = () => {
       return;
     }
 
-    // Array.from compta punts de codi Unicode, com el mínim de 8 caràcters del backend.
-    // Aquestes comprovacions ajuden l’usuari; el backend torna a validar les dades.
-    if (Array.from(password).length < 8) {
-      setValidationError("La contraseña debe tener al menos 8 caracteres.");
-      return;
-    }
-    // bcrypt admet com a màxim 72 bytes: accents i emojis poden ocupar més d’un byte.
-    if (new TextEncoder().encode(password).length > 72) {
-      setValidationError("La contraseña es demasiado larga. Usa menos caracteres, especialmente si contiene símbolos o emojis.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setValidationError("Las contraseñas no coinciden.");
+    const errors = validateAccessDetails({ password, confirmPassword, terms: acceptedTerms, privacy: readPrivacy });
+    setAccessErrors(errors);
+    const firstInvalidField = Object.keys(errors)[0];
+    if (firstInvalidField) {
+      const input = event.currentTarget.elements.namedItem(firstInvalidField);
+      if (input instanceof HTMLElement) input.focus();
       return;
     }
 
@@ -137,7 +133,7 @@ const Register = () => {
             </p>
           </header>
           <div>
-            <form noValidate={step === 1} onSubmit={handleSubmit} aria-label="Crear mi cuenta" aria-busy={isSubmitting} className="flex flex-col gap-3">
+            <form noValidate onSubmit={handleSubmit} aria-label="Crear mi cuenta" aria-busy={isSubmitting} className="flex flex-col gap-3">
               {/* Els errors locals es mostren sota cada camp abans de poder avançar. */}
               {step === 1 && (
                 <>
@@ -223,10 +219,11 @@ const Register = () => {
               {step === 2 && (
                 <>
                   {[
-                    { name: "password", label: "Contraseña", value: password, setValue: setPassword, visible: showPassword, setVisible: setShowPassword },
-                    { name: "confirmPassword", label: "Confirma la contraseña", value: confirmPassword, setValue: setConfirmPassword, visible: showConfirmPassword, setVisible: setShowConfirmPassword },
+                    { name: "password" as const, label: "Contraseña", value: password, setValue: setPassword, visible: showPassword, setVisible: setShowPassword },
+                    { name: "confirmPassword" as const, label: "Confirma la contraseña", value: confirmPassword, setValue: setConfirmPassword, visible: showConfirmPassword, setVisible: setShowConfirmPassword },
                   ].map((field) => (
-                    <TextField key={field.name} name={field.name} type={field.visible ? "text" : "password"} isRequired isDisabled={isSubmitting}>
+                    <TextField key={field.name} name={field.name} type={field.visible ? "text" : "password"}
+                      validationBehavior="aria" isInvalid={!!accessErrors[field.name]} isRequired isDisabled={isSubmitting}>
                       <Label className="text-sm font-medium text-foreground/90">{field.label}</Label>
                       <div className="relative">
                         <Input
@@ -235,9 +232,13 @@ const Register = () => {
                           name={field.name}
                           autoComplete="new-password"
                           required
-                          aria-describedby={field.name === "password" ? "register-password-help" : undefined}
+                          aria-describedby={[field.name === "password" && "register-password-help", accessErrors[field.name] && `register-${field.name}-error`].filter(Boolean).join(" ") || undefined}
                           value={field.value}
-                          onChange={(event) => field.setValue(event.target.value)}
+                          onChange={(event) => {
+                            field.setValue(event.target.value);
+                            clearAccessError(field.name);
+                            if (field.name === "password") clearAccessError("confirmPassword");
+                          }}
                         />
                         <Button
                           isIconOnly
@@ -255,9 +256,10 @@ const Register = () => {
                           </svg>
                         </Button>
                       </div>
+                      <FieldError id={`register-${field.name}-error`}>{accessErrors[field.name]}</FieldError>
                       {field.name === "password" && (
                         <p id="register-password-help" className="text-xs leading-relaxed text-foreground/65">
-                          La contraseña debe tener entre 8 y 72 caracteres.
+                          La contraseña debe contener entre 8 y 72 carácteres.
                         </p>
                       )}
                     </TextField>
@@ -265,18 +267,20 @@ const Register = () => {
                   {/* Els documents s’obren en una altra pestanya per conservar les dades del formulari. */}
                   <div className="space-y-2 text-xs leading-relaxed text-foreground/80">
                     {[
-                      { name: "terms", label: "Acepto las condiciones de uso.", selected: acceptedTerms, setSelected: setAcceptedTerms, path: "condiciones-de-uso", link: "Consultar condiciones" },
-                      { name: "privacy", label: "He leído la política de privacidad.", selected: readPrivacy, setSelected: setReadPrivacy, path: "politica-de-privacidad", link: "Consultar privacidad" },
+                      { name: "terms" as const, label: "Acepto las condiciones de uso.", selected: acceptedTerms, setSelected: setAcceptedTerms, path: "condiciones-de-uso", link: "Consultar condiciones" },
+                      { name: "privacy" as const, label: "He leído la política de privacidad.", selected: readPrivacy, setSelected: setReadPrivacy, path: "politica-de-privacidad", link: "Consultar privacidad" },
                     ].map((document) => (
                       <div key={document.name} className="flex flex-wrap items-center gap-x-2">
                         <Checkbox name={document.name} isRequired isDisabled={isSubmitting}
-                          isSelected={document.selected} onChange={document.setSelected}>
+                          validationBehavior="aria" isInvalid={!!accessErrors[document.name]}
+                          isSelected={document.selected} onChange={(selected) => { document.setSelected(selected); clearAccessError(document.name); }}>
                           <Checkbox.Content className="gap-3">
                             <Checkbox.Control className="size-4 shrink-0 border border-foreground/40">
                               <Checkbox.Indicator />
                             </Checkbox.Control>
                             <Label className="text-xs text-foreground/80">{document.label}</Label>
                           </Checkbox.Content>
+                          <FieldError className="text-danger">{accessErrors[document.name]}</FieldError>
                         </Checkbox>
                         <a href={`/legal/${document.path}`} target="_blank" rel="noopener noreferrer"
                           aria-label={`${document.link} (se abre en una pestaña nueva)`}
@@ -308,7 +312,7 @@ const Register = () => {
                   className="h-10 min-h-10 w-full rounded-xl sm:flex-1 border border-foreground/20 bg-background text-sm text-foreground"
                   isDisabled={isSubmitting}
                   onPress={() => {
-                    setValidationError("");
+                    setAccessErrors({});
                     resetRegistration();
                     setStep(1);
                   }}
