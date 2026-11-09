@@ -4,14 +4,15 @@ import { Button, Card } from "@heroui/react";
 import {
   useOpportunityStore,
   type RealEstateOpportunityGetResponse,
-} from "../../store/useOpportunityStore";
+} from "../../../store/useOpportunityStore";
 import RealEstateSkeleton from "./RealEstateSkeleton";
-import Icon, { ICONS } from "./OpportunityIcon";
-import Gallery, { GalleryImage } from "./OpportunityGallery";
-import Section from "./OpportunitySection";
-import Fact from "./OpportunityFact";
-import SectionTitle from "./OpportunitySectionTitle";
-import LocationMap from "./OpportunityLocationMap";
+import Icon, { ICONS } from "../common/OpportunityIcon";
+import Gallery, { GalleryImage } from "../common/OpportunityGallery";
+import Section from "../common/OpportunitySection";
+import Fact from "../common/OpportunityFact";
+import SectionTitle from "../common/OpportunitySectionTitle";
+import LocationMap from "../common/OpportunityLocationMap";
+import { useNow } from "../../../hooks/useNow";
 
 /* -------------------------------------------------------------------------- */
 /*  Formato                                                                   */
@@ -97,30 +98,8 @@ const splitDescription = (description: string) => {
   };
 };
 
-/** Reloj que se actualiza cada 30 s y al volver a la pestaña (estado de fechas y plazo). */
-const useNow = (intervalMs = 30_000) => {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const tick = () => setNow(Date.now());
-    const timer = setInterval(tick, intervalMs);
-    const onVisibility = () => {
-      if (!document.hidden) tick();
-    };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [intervalMs]);
-  return now;
-};
-
 const FOCUS_RING =
   "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-focus";
-
-const PageShell = ({ children }: { children: ReactNode }) => (
-  <div className="mx-auto w-full max-w-[1240px] px-5 pt-5 pb-14 sm:px-10">{children}</div>
-);
 
 const BackLink = () => (
   <Link
@@ -170,7 +149,7 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
   ].filter((item): item is { label: string; date: string } => item.date !== null);
 
   return (
-    <PageShell>
+    <div className="mx-auto w-full max-w-[1240px] px-5 pt-5 pb-14 sm:px-10">
       <BackLink />
 
       <section aria-labelledby="opportunity-title">
@@ -387,7 +366,6 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
           </ol>
         </Section>
 
-        {/* Ubicación aproximada */}
         <Section id="location-title">
           <div className="flex flex-col gap-6 min-[960px]:flex-row min-[960px]:items-center">
             <div className="min-w-0 min-[960px]:flex-1">
@@ -403,13 +381,9 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
           </div>
         </Section>
       </div>
-    </PageShell>
+    </div>
   );
 };
-
-/* -------------------------------------------------------------------------- */
-/*  Página (carga, errores y rutas inválidas)                                 */
-/* -------------------------------------------------------------------------- */
 
 interface StateMessageProps {
   title: string;
@@ -418,14 +392,14 @@ interface StateMessageProps {
 }
 
 const StateMessage = ({ title, description, action }: StateMessageProps) => (
-  <PageShell>
+  <div className="mx-auto w-full max-w-[1240px] px-5 pt-5 pb-14 sm:px-10">
     <BackLink />
     <div className="flex flex-col items-center gap-3 py-20 text-center">
       <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
       {description && <p className="max-w-[65ch] text-sm text-muted">{description}</p>}
       {action}
     </div>
-  </PageShell>
+  </div>
 );
 
 const RealEstateDetail = () => {

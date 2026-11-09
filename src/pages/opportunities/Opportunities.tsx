@@ -1,7 +1,7 @@
 import { Button } from "@heroui/react";
 import { useOpportunityStore } from "../../store/useOpportunityStore";
 import { useEffect } from "react";
-import OpportunityCard from "./OpportunityCard";
+import OpportunityCard from "./common/OpportunityCard";
 import OpportunitiesSkeleton from "./OpportunitiesSkeleton";
 
 const Opportunities = () => {
