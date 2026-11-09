@@ -1,7 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/app/App";
+import { useAuthStore } from "../src/store/useAuthStore";
+
+beforeEach(() => useAuthStore.setState(useAuthStore.getInitialState(), true));
 
 // Aïllem App de la capçalera i de les pàgines: aquí només es prova l’enrutat.
 vi.mock("../src/components/Header", () => ({
@@ -60,6 +63,24 @@ describe("enrutat d'App", () => {
   it.each(["/ruta-inexistent", "/oportunidades"])("redirigeix %s a l’inici", async (path) => {
     renderApp(path);
 
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
+  });
+});
+
+describe("rutes de visitant amb sessió activa", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it.each(["/login", "/register"])("redirigeix %s a l’inici si ja hi ha sessió", async (path) => {
+    useAuthStore.setState({ active_account: account });
+    renderApp(path);
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
+  });
+
+  it.each(["/login", "/register"])("redirigeix %s quan es recupera la sessió després de carregar", async (path) => {
+    renderApp(path);
+    act(() => useAuthStore.setState({ active_account: account }));
     expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
     expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
   });

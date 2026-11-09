@@ -37,6 +37,8 @@ describe("TR05: sessió amb cookie", () => {
     await renderSession();
     expect(useAuthStore.getState().active_account).toEqual(account);
     expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Iniciar sesión" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Registrarse" })).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/auth/me", expect.objectContaining({ credentials: "include" }));
   });
 
