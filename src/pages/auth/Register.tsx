@@ -276,7 +276,12 @@ const Register = () => {
                           isSelected={document.selected} onChange={(selected) => { document.setSelected(selected); clearAccessError(document.name); }}>
                           <Checkbox.Content className="gap-3">
                             <Checkbox.Control className="size-4 shrink-0 border border-foreground/40">
-                              <Checkbox.Indicator />
+                              <Checkbox.Indicator className={document.selected ? undefined : "invisible"}>
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                  strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-full">
+                                  <path d="m5 12 4 4L19 6" />
+                                </svg>
+                              </Checkbox.Indicator>
                             </Checkbox.Control>
                             <Label className="text-xs text-foreground/80">{document.label}</Label>
                           </Checkbox.Content>
