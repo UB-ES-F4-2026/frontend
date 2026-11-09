@@ -22,7 +22,7 @@ const opportunityState = vi.hoisted(() => ({
   fetchRealEstateOpportunity: vi.fn(),
 }));
 
-// Estado simulado de useAuthStore (para probar el acceso desde OpportunityCard y el modal de login)
+// Estado simulado de useAuthStore (para probar protección de ruta, acceso desde OpportunityCard y modal)
 const authState = vi.hoisted(() => ({
   status: "idle" as "idle" | "loading" | "success" | "error",
   details: "",
@@ -113,6 +113,7 @@ function renderRealEstateDetail(initialEntry = "/opportunities/real-estate/23") 
       <Routes>
         <Route path="/opportunities/real-estate/:id" element={<RealEstateDetail />} />
         <Route path="/opportunities" element={<h1>Página simulada: listado de oportunidades</h1>} />
+        <Route path="/login" element={<h1>Página simulada: login</h1>} />
       </Routes>
       <CurrentPath />
     </MemoryRouter>,
@@ -134,7 +135,11 @@ beforeEach(() => {
 
   authState.status = "idle";
   authState.details = "";
-  authState.active_account = null;
+  authState.active_account = {
+    id: 1,
+    email: "sergio@example.com",
+    created_at: "2026-10-17T10:00:00Z",
+  };
 
   // Polyfill de HTMLDialogElement para JSDOM (usado en el zoom de OpportunityGallery)
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
@@ -146,7 +151,7 @@ beforeEach(() => {
   });
 });
 
-describe("RealEstateDetail - Enrutado, estados de carga y errores", () => {
+describe("RealEstateDetail - Enrutado, protección de sesión, estados de carga y errores", () => {
   it.each(["abc", "0", "-5", "12.5"])(
     "muestra el mensaje de ruta inválida para el parámetro id='%s' sin llamar al store",
     (invalidId) => {
@@ -165,6 +170,32 @@ describe("RealEstateDetail - Enrutado, estados de carga y errores", () => {
       );
     },
   );
+
+  it("redirige a /login cuando el estado de autenticación no es 'idle' y no hay sesión activa", async () => {
+    authState.status = "error";
+    authState.active_account = null;
+
+    renderRealEstateDetail("/opportunities/real-estate/23");
+
+    expect(
+      await screen.findByRole("heading", { name: "Página simulada: login" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
+  });
+
+  it("no redirige a /login mientras el estado de autenticación está en 'idle' aunque aún no haya cuenta", () => {
+    authState.status = "idle";
+    authState.active_account = null;
+
+    renderRealEstateDetail("/opportunities/real-estate/23");
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Rehabilitación Residencial Eixample" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(
+      /^\/opportunities\/real-estate\/23$/,
+    );
+  });
 
   it("solicita el detalle al montarse y muestra el skeleton mientras detailStatus es 'loading'", () => {
     opportunityState.detailStatus = "loading";
@@ -239,7 +270,7 @@ describe("RealEstateDetail - Enrutado, estados de carga y errores", () => {
   });
 });
 
-describe("RealEstateDetail - Contenido del detalle inmobiliario", () => {
+describe("RealEstateDetail - Contenido del detalle inmobiliario e inversión", () => {
   it("renderiza el título, la ubicación, la entradilla del hero y los párrafos restantes en el resumen", () => {
     renderRealEstateDetail();
 
@@ -288,7 +319,7 @@ describe("RealEstateDetail - Contenido del detalle inmobiliario", () => {
     renderRealEstateDetail();
 
     expect(screen.getByText("En financiación")).toBeInTheDocument();
-    
+
     expect(screen.getByText("65.000,00 €")).toBeInTheDocument();
     expect(screen.getByText("100.000,00 €")).toBeInTheDocument();
     expect(screen.getByText("500,00 €")).toBeInTheDocument();
@@ -305,7 +336,48 @@ describe("RealEstateDetail - Contenido del detalle inmobiliario", () => {
     ).toBeInTheDocument();
   });
 
-  it("indica 'Plazo finalizado' cuando la fecha actual iguala o supera el deadline y limita la barra al 100 %", () => {
+  it("habilita el botón 'Quiero invertir', muestra el texto informativo de condiciones y lanza el aviso al pulsarlo", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const user = userEvent.setup();
+    renderRealEstateDetail();
+
+    expect(
+      screen.getByText(
+        /Puede invertir en esta iniciativa siempre que no se haya alcanzado el capital objetivo y no haya finalizado el plazo de financiación\./i,
+      ),
+    ).toBeInTheDocument();
+
+    const investButton = screen.getByRole("button", { name: "Quiero invertir" });
+    expect(investButton).toBeEnabled();
+
+    await user.click(investButton);
+
+    expect(alertSpy).toHaveBeenCalledExactlyOnceWith(
+      "Funcionalidad de inversión disponible en futuras iteraciones.",
+    );
+    alertSpy.mockRestore();
+  });
+
+  it("deshabilita el botón 'Quiero invertir' cuando se ha alcanzado o superado el capital objetivo aunque el plazo siga abierto", async () => {
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const user = userEvent.setup();
+    opportunityState.realEstateOpportunity = buildRealEstateOpportunity({
+      target_amount_cents: 100_000_00,
+      committed_cents: 100_000_00, // 100 % alcanzado
+    });
+
+    renderRealEstateDetail();
+
+    expect(screen.getByText("En financiación")).toBeInTheDocument();
+    const investButton = screen.getByRole("button", { name: "Quiero invertir" });
+    expect(investButton).toBeDisabled();
+
+    await user.click(investButton);
+    expect(alertSpy).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+
+  it("indica 'Plazo finalizado', deshabilita 'Quiero invertir' cuando vence el deadline y limita la barra al 100 %", () => {
     nowRef.value = new Date("2027-01-01T00:00:00.000Z").getTime();
     opportunityState.realEstateOpportunity = buildRealEstateOpportunity({
       target_amount_cents: 100_000_00,
@@ -319,6 +391,22 @@ describe("RealEstateDetail - Contenido del detalle inmobiliario", () => {
       name: "Capital comprometido respecto al objetivo",
     });
     expect(progressbar).toHaveAttribute("aria-valuenow", "100");
+
+    const investButton = screen.getByRole("button", { name: "Quiero invertir" });
+    expect(investButton).toBeDisabled();
+  });
+
+  it("deshabilita 'Quiero invertir' cuando el plazo ha finalizado aunque no se haya alcanzado el capital objetivo", () => {
+    nowRef.value = new Date("2027-01-01T00:00:00.000Z").getTime();
+    opportunityState.realEstateOpportunity = buildRealEstateOpportunity({
+      target_amount_cents: 100_000_00,
+      committed_cents: 40_000_00, // 40 % comprometido pero fuera de plazo
+    });
+
+    renderRealEstateDetail();
+
+    expect(screen.getByText("Plazo finalizado")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Quiero invertir" })).toBeDisabled();
   });
 
   it("muestra los datos de la entidad promotora, las traducciones de finalidad/uso y las características del inmueble", () => {
@@ -457,6 +545,34 @@ describe("RealEstateDetail - Galería de imágenes (OpportunityGallery)", () => 
     expect(
       screen.getByRole("img", { name: "Imagen de Rehabilitación Residencial Eixample" }),
     ).toHaveAttribute("src", "https://example.com/cover.jpg");
+  });
+
+  it("muestra 'Imagen no disponible' cuando no hay ninguna imagen o cuando falla la carga de la imagen actual", () => {
+    const { unmount } = renderRealEstateDetail();
+
+    const mainImage = screen.getByRole("img", {
+      name: "Imagen 1 de Rehabilitación Residencial Eixample",
+    });
+    fireEvent.error(mainImage);
+
+    expect(screen.getByRole("button", { name: "Imagen no disponible" })).toBeDisabled();
+
+    unmount();
+
+    opportunityState.realEstateOpportunity = buildRealEstateOpportunity({
+      cover_image_url: null,
+      promoter: {
+        ...buildRealEstateOpportunity().promoter,
+        image_url: null,
+      },
+      real_estate: {
+        ...buildRealEstateOpportunity().real_estate,
+        images: null,
+      },
+    });
+
+    renderRealEstateDetail();
+    expect(screen.getByText("Imagen no disponible")).toBeInTheDocument();
   });
 });
 
