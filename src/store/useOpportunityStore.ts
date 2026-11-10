@@ -72,7 +72,7 @@ interface OpportunityState {
   status: RequestStatus;
   details: string;
   opportunities: Opportunity[];
-  fetchOpportunities: () => Promise<void>;
+  fetchOpportunities: (term?: string | null) => Promise<void>;
   detailStatus: RequestStatus;
   detailId: number | null;
   detailDetails: string;
@@ -84,10 +84,14 @@ export const useOpportunityStore = create<OpportunityState>((set) => ({
     status: "loading",
     details: "",
     opportunities: [],
-    fetchOpportunities: async () => {
+    searchedOpportunities: [],
+    fetchOpportunities: async (term?: string | null) => {
         set({ status: "loading", details: "" });
         try {
             const data = await fintechGet<Opportunity[]>("/opportunities", {
+                params: {
+                    name: term
+                },
                 signal: AbortSignal.timeout(5000)
             });
             set({ status: "success", details: "", opportunities: data });
