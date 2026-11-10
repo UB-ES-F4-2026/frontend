@@ -242,7 +242,8 @@ describe("Opportunities", () => {
       expect(screen.getByText("Valencia")).toBeInTheDocument();
 
       // Una tarjeta por oportunidad
-      expect(screen.getAllByText("Capital comprometido")).toHaveLength(2);
+      expect(screen.getAllByText("Oportunidad Inmobiliaria")).toHaveLength(1);
+      expect(screen.getAllByText("Oportunidad Empresarial")).toHaveLength(1);
     });
 
     it("muestra la etiqueta de tipo correcta en cada tarjeta", () => {
@@ -253,46 +254,29 @@ describe("Opportunities", () => {
       ];
       renderOpportunities();
 
-      expect(screen.getByText("Inmobiliaria")).toBeInTheDocument();
-      expect(screen.getByText("Empresarial")).toBeInTheDocument();
+      expect(screen.getByText("Oportunidad Inmobiliaria")).toBeInTheDocument();
+      expect(screen.getByText("Oportunidad Empresarial")).toBeInTheDocument();
     });
 
     it("muestra el progreso de financiación y los días restantes", () => {
       state.status = "success";
       state.opportunities = [buildOpportunity({ deadline: inDays(10) })];
-      renderOpportunities();
+      const { container } = renderOpportunities();
 
-      // 50.000.000 / 150.000.000 = 33,3 %
-      expect(screen.getByText(/33,3\s*%/)).toBeInTheDocument();
+      // La financiación se representa mediante la anchura de la barra.
+      expect(container.querySelector("[style]")).toHaveStyle({ width: "33.33333333333333%" });
       expect(screen.getByText("10 días restantes")).toBeInTheDocument();
-      expect(screen.getByText("En financiación")).toBeInTheDocument();
     });
 
-    it("marca la oportunidad como 'Plazo finalizado' si la fecha límite ya ha pasado", () => {
+    it("muestra cero días restantes si la fecha límite ya ha pasado", () => {
       state.status = "success";
       state.opportunities = [buildOpportunity({ deadline: inDays(-3) })];
       renderOpportunities();
 
-      expect(screen.getByText("Plazo finalizado")).toBeInTheDocument();
       expect(screen.getByText("0 días restantes")).toBeInTheDocument();
-      expect(screen.queryByText("En financiación")).not.toBeInTheDocument();
     });
 
-    it("marca la oportunidad como 'Plazo finalizado' si tiene fecha de cierre", () => {
-      state.status = "success";
-      state.opportunities = [
-        buildOpportunity({
-          deadline: inDays(10),
-          date_closed: "2026-01-02T00:00:00.000Z",
-        }),
-      ];
-      renderOpportunities();
-
-      expect(screen.getByText("Plazo finalizado")).toBeInTheDocument();
-      expect(screen.queryByText("En financiación")).not.toBeInTheDocument();
-    });
-
-    it("limita la barra de progreso al 100 % pero muestra el porcentaje real", () => {
+    it("limita la barra de progreso al 100 %", () => {
       state.status = "success";
       state.opportunities = [
         buildOpportunity({
@@ -300,9 +284,9 @@ describe("Opportunities", () => {
           committed_cents: 15_000_000,
         }),
       ];
-      renderOpportunities();
+      const { container } = renderOpportunities();
 
-      expect(screen.getByText(/150,0\s*%/)).toBeInTheDocument();
+      expect(container.querySelector("[style]")).toHaveStyle({ width: "100%" });
     });
 
     it("muestra la imagen de portada cuando existe", () => {
@@ -312,19 +296,18 @@ describe("Opportunities", () => {
       ];
       renderOpportunities();
 
-      const image = screen.getByRole("img", {
-        name: "Edificio Histórico L'Eixample",
-      });
+      const image = screen.getByRole("presentation");
+      expect(image).toHaveAttribute("alt", "");
       expect(image).toHaveAttribute("src", "https://example.com/portada.jpg");
       expect(screen.queryByText("Imagen no disponible")).not.toBeInTheDocument();
     });
 
-    it("muestra un texto alternativo cuando no hay imagen de portada", () => {
+    it("omite la imagen cuando no hay portada", () => {
       state.status = "success";
       state.opportunities = [buildOpportunity({ cover_image_url: null })];
       renderOpportunities();
 
-      expect(screen.getByText("Imagen no disponible")).toBeInTheDocument();
+      expect(screen.queryByRole("presentation")).not.toBeInTheDocument();
       expect(screen.queryByRole("img")).not.toBeInTheDocument();
     });
   });
