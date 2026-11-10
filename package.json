@@ -12,6 +12,8 @@
   "dependencies": {
     "@heroui/react": "^3.2.6",
     "@heroui/styles": "^3.2.6",
+    "@stripe/react-stripe-js": "^7.0.1",
+    "@stripe/stripe-js": "^10.2.1",
     "@tailwindcss/vite": "^4.3.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",

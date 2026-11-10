@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { Button, Card, Spinner } from "@heroui/react";
+import { Link } from "react-router";
+import { buttonVariants } from "@heroui/react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWalletStore } from "../../store/useWalletStore";
 
@@ -110,6 +112,13 @@ export default function MyWalletPage() {
             </div>
           </Card>
         </section>
+
+        <Link
+          to="/my-balance/deposit"
+          className={`${buttonVariants({ variant: "primary", size: "lg" })} w-fit bg-warning text-warning-foreground hover:bg-warning/90`}
+        >
+          Ingresar fondos
+        </Link>
       </div>
     </div>
   );
