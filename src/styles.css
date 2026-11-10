@@ -2,6 +2,12 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
+/* Blau marí de marca (product.md): resums destacats com el saldo. */
+@theme {
+  --color-brand: #172b4d;
+  --color-brand-foreground: #ffffff;
+}
+
 :root {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
@@ -19,4 +25,34 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+}
+
+/* Colors del registre i del panell lateral segons la maqueta del PO. */
+.register-theme {
+  --background: #ffffff;
+  --foreground: #101828;
+  --muted: color-mix(in srgb, var(--foreground) 65%, transparent);
+  --field-background: var(--background);
+  --field-hover: var(--field-background);
+  --field-focus: var(--field-background);
+  --field-border-hover: var(--field-border);
+  --field-foreground: var(--foreground);
+  --accent: var(--warning);
+  --accent-hover: var(--accent);
+  --accent-foreground: var(--warning-foreground);
+}
+
+.register-panel {
+  --background: #172b4d;
+  --foreground: #ffffff;
+}
+
+/* HeroUI també aplica hover intern: mantenim el color sense anul·lar el focus. */
+.register-theme .button {
+  --button-bg-hover: var(--button-bg);
+}
+
+.register-theme :is(.button, .select__trigger):focus {
+  outline: 2px solid var(--warning);
+  outline-offset: 2px;
 }

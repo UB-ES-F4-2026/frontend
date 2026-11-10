@@ -1,7 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/app/App";
+import { useAuthStore } from "../src/store/useAuthStore";
+
+beforeEach(() => useAuthStore.setState(useAuthStore.getInitialState(), true));
 
 // Aïllem App de la capçalera i de les pàgines: aquí només es prova l’enrutat.
 vi.mock("../src/components/Header", () => ({
@@ -21,6 +24,16 @@ vi.mock("../src/pages/test/AppTest", () => ({
 }));
 vi.mock("../src/pages/opportunities/Opportunities", () => ({
   default: () => <h1>Pàgina simulada: oportunitats</h1>,
+}));
+vi.mock("../src/pages/wallet/MyWalletPage", () => ({
+  default: () => <h1>Pàgina simulada: saldo</h1>,
+}));
+
+vi.mock("../src/pages/legal/TermsOfUse", () => ({
+  default: () => <h1>Pàgina simulada: condicions</h1>,
+}));
+vi.mock("../src/pages/legal/PrivacyPolicy", () => ({
+  default: () => <h1>Pàgina simulada: privacitat</h1>,
 }));
 
 function CurrentPath() {
@@ -42,6 +55,8 @@ describe("enrutat d'App", () => {
     ["/register", "Pàgina simulada: registre"],
     ["/login", "Pàgina simulada: login"],
     ["/opportunities", "Pàgina simulada: oportunitats"],
+    ["/legal/condiciones-de-uso", "Pàgina simulada: condicions"],
+    ["/legal/politica-de-privacidad", "Pàgina simulada: privacitat"],
     ["/test", "Pàgina simulada: connexió"],
   ])("mostra la pàgina corresponent a %s dins de main", (path, heading) => {
     renderApp(path);
@@ -62,5 +77,48 @@ describe("enrutat d'App", () => {
 
     expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
     expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
+  });
+});
+
+describe("rutes de visitant amb sessió activa", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it.each(["/login", "/register"])("redirigeix %s a l’inici si ja hi ha sessió", async (path) => {
+    useAuthStore.setState({ active_account: account });
+    renderApp(path);
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
+  });
+
+  it.each(["/login", "/register"])("redirigeix %s quan es recupera la sessió després de carregar", async (path) => {
+    renderApp(path);
+    act(() => useAuthStore.setState({ active_account: account }));
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
+  });
+});
+
+describe("ruta privada /my-balance", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it("mostra «Mi saldo» al client autenticat", () => {
+    useAuthStore.setState({ active_account: account, sessionChecked: true });
+    renderApp("/my-balance");
+    expect(within(screen.getByRole("main")).getByRole("heading", { name: "Pàgina simulada: saldo" })).toBeInTheDocument();
+  });
+
+  it("porta el visitant al login sense mostrar la pàgina", async () => {
+    useAuthStore.setState({ sessionChecked: true });
+    renderApp("/my-balance");
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
+  });
+
+  it("en recarregar espera la sessió recuperada en lloc d’expulsar l’usuari", async () => {
+    renderApp("/my-balance");
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/my-balance$/);
+    expect(screen.queryByRole("heading", { name: "Pàgina simulada: saldo" })).not.toBeInTheDocument();
+    act(() => useAuthStore.setState({ active_account: account, sessionChecked: true }));
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: saldo" })).toBeInTheDocument();
   });
 });
