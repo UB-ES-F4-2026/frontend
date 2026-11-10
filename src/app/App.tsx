@@ -7,6 +7,9 @@ import TermsOfUse from "../pages/legal/TermsOfUse";
 import PrivacyPolicy from "../pages/legal/PrivacyPolicy";
 import Header from "../components/Header";
 import Opportunities from "../pages/opportunities/Opportunities";
+import MyWalletPage from "../pages/wallet/MyWalletPage";
+import RequireAuth from "../components/RequireAuth";
+import RealEstateDetail from "../pages/opportunities/real-estate/RealEstateDetail";
 
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -24,6 +27,8 @@ export default function App() {
           <Route path="/legal/condiciones-de-uso" element={<TermsOfUse />} />
           <Route path="/legal/politica-de-privacidad" element={<PrivacyPolicy />} />
           <Route path="/opportunities" element={<Opportunities />} />
+          <Route path="/my-balance" element={<RequireAuth><MyWalletPage /></RequireAuth>} />
+          <Route path="/opportunities/real-estate/:id" element={<RealEstateDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

@@ -32,6 +32,8 @@ interface AuthState {
   status: "idle" | RequestStatus;
   details: string;
   active_account: UserType | null;
+  // Fals fins que sabem si hi ha sessió: evita expulsar d’una ruta privada en recarregar.
+  sessionChecked: boolean;
   login: (credentials : LoginPayload) => Promise<UserType | null>;
   // El registre té un estat propi per no interferir amb el login.
   registrationStatus: "idle" | RequestStatus;
@@ -90,6 +92,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   status: "idle",
   details: "",
   active_account: null,
+  sessionChecked: false,
   registrationStatus: "idle",
   registrationDetails: "",
 
@@ -104,7 +107,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         email: credentials.email.trim().toLowerCase(),
         password: credentials.password,
       });
-      set({ status: "success", details: "", active_account: account });
+      set({ status: "success", details: "", active_account: account, sessionChecked: true });
       return account;
     } catch (error: unknown) {
       set({ status: "error", details: getLoginErrorMessage(error), active_account: null });
@@ -122,6 +125,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch {
       // Sense cookie som visitants; un error de xarxa tampoc obliga a anar al login.
+    } finally {
+      if (!signal.aborted) set({ sessionChecked: true });
     }
   },
 
@@ -161,6 +166,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       status: "idle",
       details: "",
       active_account: null,
+      sessionChecked: true,
     });
   },
   

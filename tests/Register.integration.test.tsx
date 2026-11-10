@@ -57,7 +57,7 @@ describe("Registre: una única petició amb les dades dels dos passos (#30)", ()
     expect(url).toBe("/api/auth/register");
     expect(options.method).toBe("POST");
     expect(options.headers.get("Content-Type")).toBe("application/json");
-    expect(options.credentials).toBe("same-origin");
+    expect(options.credentials).toBe("include");
     expect(JSON.parse(options.body)).toEqual({
       first_name: "María", last_name: "Prueba-López", email: "maria@example.com",
       phone: normalizedPhone, password: " Password1 ",
