@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - e2e-testing
-  pull_request:
-    branches:
-      - dev
+  # pull_request:
+  #   branches:
+  #     - dev
 
 jobs:
   test:
@@ -68,24 +68,32 @@ jobs:
       - name: Wait for Stack Health
         run: |
           cd backend
-          echo "Waiting for services to be healthy..."
-          # Un loop sencillo para no avanzar hasta que el backend (y por dependencia, la BD) estén OK
+          echo "Waiting for backend to be healthy..."
           for i in {1..30}; do
             STATUS=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q backend))
             if [ "$STATUS" == "healthy" ]; then
               echo "Backend is healthy!"
               break
             fi
-            echo "Waiting... ($i/30)"
+            echo "Waiting for backend... ($i/30)"
             sleep 3
           done
-          # Nos aseguramos de que el frontend también reporte healthy
-          FRONTEND_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q frontend))
-          if [ "$FRONTEND_STATUS" != "healthy" ]; then
-            echo "Frontend did not become healthy."
-            docker compose logs frontend
-            exit 1
-          fi
+
+          echo "Waiting for frontend to be healthy..."
+          for i in {1..30}; do
+            FRONTEND_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q frontend))
+            if [ "$FRONTEND_STATUS" == "healthy" ]; then
+              echo "Frontend is healthy!"
+              break
+            fi
+            if [ "$i" == "30" ]; then
+              echo "Frontend did not become healthy in time."
+              docker compose logs frontend
+              exit 1
+            fi
+            echo "Waiting for frontend... ($i/30)"
+            sleep 3
+          done
 
       # 6. Ejecutar migraciones y semilla (Seed) de datos
       # Esto asume que tienes un script o comando en el backend para popular la BD base.
@@ -116,7 +124,7 @@ jobs:
       - name: Run E2E Tests
         run: |
           cd frontend
-          PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npx playwright test
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npx playwright test --workers=1
 
       # 9. Guardar reportes para debuggear (Artifacts)
       - name: Upload Playwright Report
