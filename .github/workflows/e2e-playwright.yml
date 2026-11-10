@@ -100,11 +100,7 @@ jobs:
       - name: Run Migrations and Seed Data
         run: |
           cd backend
-          # Alembic suele ejecutarse al arrancar si tienes el entrypoint configurado para ello. 
-          # Si no, lo fuerzas: docker compose exec -T backend alembic upgrade head
-          
-          # ¡AQUÍ DEBES INCLUIR TU SCRIPT DE SEED! Ejemplo:
-          # docker compose exec -T backend python -m app.scripts.seed_db
+          docker compose exec -T backend python seed_e2e_testing_data.py
 
       # 7. Instalar dependencias de Playwright en el runner (directamente en la carpeta frontend)
       - name: Setup Node
