@@ -100,7 +100,7 @@ jobs:
       - name: Run Migrations and Seed Data
         run: |
           cd backend
-          docker compose exec -T backend python seed_e2e_testing_data.py
+          docker compose exec -T backend python ../seed_e2e_testing_data.py
 
       # 7. Instalar dependencias de Playwright en el runner (directamente en la carpeta frontend)
       - name: Setup Node
