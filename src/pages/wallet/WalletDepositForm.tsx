@@ -31,6 +31,8 @@ const formatCents = (cents: number) =>
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
+    // Com a «Mi saldo»: l'es-ES per defecte no separa els milers de quatre xifres («1234,56 €»).
+    useGrouping: "always",
   }).format(cents / 100);
 
 function PaymentForm({ amountCents, onCancel, onSuccess }: PaymentFormProps) {
