@@ -96,11 +96,22 @@ jobs:
           done
 
       # 6. Ejecutar migraciones y semilla (Seed) de datos
-      # Esto asume que tienes un script o comando en el backend para popular la BD base.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Python Dependencies
+        run: |
+          cd backend
+          pip install httpx psycopg2-binary
+          
       - name: Run Migrations and Seed Data
         run: |
           cd backend
-          docker compose exec -T backend python ../seed_e2e_testing_data.py
+          python seed_e2e_testing_data.py
 
       # 7. Instalar dependencias de Playwright en el runner (directamente en la carpeta frontend)
       - name: Setup Node
