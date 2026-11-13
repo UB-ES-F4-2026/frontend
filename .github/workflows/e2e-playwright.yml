@@ -22,19 +22,7 @@ jobs:
           path: frontend
 
       # 2. Checkout del código del backend
-      # Intenta hacer checkout de la rama con el mismo nombre que la PR. 
-      # Si no existe, hace un fallback a la rama 'dev'.
       - name: Checkout Backend
-        id: checkout_backend
-        uses: actions/checkout@v4
-        with:
-          repository: UB-ES-F4-2026/backend
-          path: backend
-          ref: ${{ github.head_ref }}
-        continue-on-error: true
-      
-      - name: Fallback Checkout Backend to dev
-        if: steps.checkout_backend.outcome != 'success'
         uses: actions/checkout@v4
         with:
           repository: UB-ES-F4-2026/backend
