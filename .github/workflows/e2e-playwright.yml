@@ -115,20 +115,69 @@ jobs:
           npm ci
           npx playwright install --with-deps
 
-      # 8. Ejecutar los tests (atacando a localhost:5173, expuesto por el compose)
+      # 8. Ejecutar tests exportando JSON y HTML
       - name: Run E2E Tests
         run: |
           cd frontend
-          PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npx playwright test --workers=1
+          PLAYWRIGHT_JSON_OUTPUT_NAME=results.json PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npx playwright test --workers=1 --reporter=line,github,html,json
 
-      # 9. Guardar reportes para debuggear (Artifacts)
-      - name: Upload Playwright Report
-        if: always()
-        uses: actions/upload-artifact@v4
+      # 9. Subir el reporte a Surge (Solo si es una Pull Request)
+      - name: Deploy Report to Surge
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          npm install -g surge
+          surge ./frontend/playwright-report f4-e2e-pr-${{ github.event.number }}.surge.sh
+        env:
+          SURGE_LOGIN: ${{ secrets.SURGE_LOGIN }}
+          SURGE_TOKEN: ${{ secrets.SURGE_TOKEN }}
+
+      # 10. Leer el JSON, armar la tabla en Markdown y comentar en la PR
+      - name: Post PR Comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
         with:
-          name: playwright-report
-          path: frontend/playwright-report/
-          retention-days: 7
+          script: |
+            const fs = require('fs');
+            
+            // Leemos los resultados del JSON de Playwright
+            const resultsPath = './frontend/playwright-report/results.json';
+            if (!fs.existsSync(resultsPath)) {
+              console.log("No se encontró el archivo JSON. Omitiendo comentario.");
+              return;
+            }
+            
+            const results = JSON.parse(fs.readFileSync(resultsPath));
+            const stats = results.stats || {};
+            const passed = stats.expected || 0;
+            const failed = stats.unexpected || 0;
+            const flaky = stats.flaky || 0;
+            const duration = ((stats.duration || 0) / 1000).toFixed(1);
+            
+            const reportUrl = `https://f4-e2e-pr-${context.issue.number}.surge.sh`;
+            
+            // Construimos la tabla Markdown
+            let body = `### 🎭 Resultados E2E de Playwright\n\n`;
+            body += `| Estado | Cantidad |\n`;
+            body += `|---|---|\n`;
+            body += `| ✅ **Pasados** | ${passed} |\n`;
+            body += `| ❌ **Fallados** | ${failed} |\n`;
+            body += `| ⚠️ **Inestables** | ${flaky} |\n`;
+            body += `| ⏱️ **Tiempo total** | ${duration}s |\n\n`;
+            
+            // Mensaje condicional con el link
+            if (failed > 0) {
+              body += `🚨 **¡Hay errores!** 🔍 [Abre el reporte interactivo para ver los detalles y las trazas](${reportUrl})`;
+            } else {
+              body += `✨ **¡Todo en verde!** 🟢 [Ver reporte completo](${reportUrl})`;
+            }
+            
+            // Publicar el comentario en la PR
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
           
       # 10. Limpiar contenedores (Opcional en GitHub Actions, pero buena práctica)
       - name: Teardown
