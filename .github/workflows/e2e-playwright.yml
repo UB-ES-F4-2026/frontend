@@ -162,18 +162,18 @@ jobs:
             
             // Construimos la tabla Markdown
             let body = `### 🎭 Resultados E2E de Playwright\n\n`;
-            body += `| Estado | Cantidad |\n`;
+            body += `| Estat | Quantitat |\n`;
             body += `|---|---|\n`;
-            body += `| ✅ **Pasados** | ${passed} |\n`;
-            body += `| ❌ **Fallados** | ${failed} |\n`;
+            body += `| ✅ **Passats** | ${passed} |\n`;
+            body += `| ❌ **Fallats** | ${failed} |\n`;
             body += `| ⚠️ **Inestables** | ${flaky} |\n`;
-            body += `| ⏱️ **Tiempo total** | ${duration}s |\n\n`;
+            body += `| ⏱️ **Temps total** | ${duration}s |\n\n`;
             
             // Mensaje condicional con el link
             if (failed > 0) {
-              body += `🚨 **¡Hay errores!** 🔍 [Abre el reporte interactivo para ver los detalles y las trazas](${reportUrl})`;
+              body += `**¡Hi ha errors errores!** 🚨 [Obre l'informe interactiu per a veure els detalls i les traces](${reportUrl})`;
             } else {
-              body += `✨ **¡Todo en verde!** 🟢 [Ver reporte completo](${reportUrl})`;
+              body += `**¡Tot verd!** 🟢 [Veure informe complet](${reportUrl})`;
             }
             
             // Publicar el comentario en la PR
