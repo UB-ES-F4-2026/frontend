@@ -120,7 +120,7 @@ jobs:
       - name: Run E2E Tests
         run: |
           cd frontend
-          PLAYWRIGHT_JSON_OUTPUT_NAME=results.json PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npx playwright test --workers=1 --reporter=line,github,html,json
+          PLAYWRIGHT_JSON_OUTPUT_NAME=playwright-report/results.json PLAYWRIGHT_BASE_URL=http://127.0.0.1:5173 npx playwright test --workers=1 --reporter=line,github,html,json
 
       # 9. Subir el reporte a Surge (Solo si es una Pull Request)
       - name: Deploy Report to Surge
