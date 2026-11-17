@@ -9,6 +9,7 @@ const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:0
 // Cada test comença com a visitant.
 beforeEach(() => {
   useAuthStore.setState(useAuthStore.getInitialState(), true);
+  useAuthStore.setState({ sessionChecked: true });
 });
 
 function renderHome() {
@@ -58,6 +59,15 @@ describe("HomePage", () => {
 
     act(() => useAuthStore.getState().clearSession());
     expect(screen.getByRole("link", { name: "Crear cuenta" })).toHaveAttribute("href", "/register");
+  });
+
+  it("no muestra «Crear cuenta» mientras se restaura la sesión", () => {
+    useAuthStore.setState({ sessionChecked: false, active_account: null });
+    renderHome();
+
+    expect(
+      screen.queryByRole("link", { name: "Crear cuenta" }),
+    ).not.toBeInTheDocument();
   });
 
   it("no duplica la navegació de la capçalera", () => {

@@ -4,7 +4,7 @@ import cityDawn from "../../assets/city_dawn.jpg";
 import { useAuthStore } from "../../store/useAuthStore";
 
 export default function HomePage() {
-  const account = useAuthStore((state) => state.active_account);
+  const { active_account: account, sessionChecked } = useAuthStore();
 
   return (
     <section className="relative isolate flex flex-1 flex-col overflow-hidden">
@@ -28,7 +28,7 @@ export default function HomePage() {
             Ver oportunidades
           </NavLink>
           {/* Com a la capçalera: amb sessió iniciada no té sentit oferir el registre. */}
-          {!account && (
+          {sessionChecked && !account && (
             <NavLink
               to="/register"
               className={`${buttonVariants({ variant: "secondary", size: "lg" })} border border-warning bg-transparent text-warning hover:bg-warning/10`}
