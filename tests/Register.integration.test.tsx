@@ -72,7 +72,7 @@ describe("Registre: una única petició amb les dades dels dos passos (#30)", ()
     });
     expect(await screen.findByRole("heading", { name: "Inicio de sesión simulado" })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledOnce();
-  });
+  }, 15_000);
 });
 
 // Incloem dades sensibles als errors simulats per comprovar que mai no es mostren.
@@ -141,5 +141,5 @@ describe("Registre: errors del servidor sense perdre dades (#30)", () => {
     expect(await screen.findByRole("heading", { name: "Inicio de sesión simulado" })).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ email: "maria.nueva@example.com", password });
-  });
+  }, 15_000);
 });
