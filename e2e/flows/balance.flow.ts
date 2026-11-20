@@ -55,26 +55,40 @@ export const registerBalanceFlow = () => {
         balance = (await balanceResponse.json()) as WalletBalance;
       });
 
-      await test.step("3. Comprobar el saldo disponible devuelto por la API", async () => {
+      await test.step("3. Comprobar el saldo disponible, el comprometido y el total devueltos por la API", async () => {
         if (!balance) throw new Error("La API no ha devuelto el saldo.");
-        const formattedBalance = new Intl.NumberFormat("es-ES", {
-          style: "currency",
-          currency: "EUR",
-          useGrouping: true,
-        }).format(balance.available_cents / 100);
+        // Mateix format que la pàgina: «always» separa també els milers de quatre xifres.
+        const format = (cents: number) =>
+          new Intl.NumberFormat("es-ES", {
+            style: "currency",
+            currency: "EUR",
+            useGrouping: "always",
+          }).format(cents / 100);
+        const formattedBalance = format(balance.available_cents);
 
         const balanceRegion = page.getByRole("region", {
           name: "Saldo disponible",
         });
         await expect(balanceRegion).toBeVisible();
+        // L'import pot repetir-se al comprometido i al total: el disponible és l'únic paràgraf.
         await expect(
-          balanceRegion.getByText(formattedBalance, { exact: true })
+          balanceRegion.getByText(formattedBalance, { exact: true }).and(balanceRegion.locator("p"))
         ).toBeVisible();
         if (balance.available_cents === 0) {
           await expect(
             balanceRegion.getByText(`Tu saldo disponible es de ${formattedBalance}`)
           ).toBeVisible();
         }
+
+        // El comprometido es mostra a part i el total suma tots dos saldos.
+        await expect(balanceRegion.getByRole("term")).toHaveText([
+          "Saldo comprometido",
+          "Total",
+        ]);
+        await expect(balanceRegion.getByRole("definition")).toHaveText([
+          format(balance.committed_cents),
+          format(balance.available_cents + balance.committed_cents),
+        ]);
       });
 
       await test.step("4. Cerrar sesión desde el Header y verificar redirección", async () => {

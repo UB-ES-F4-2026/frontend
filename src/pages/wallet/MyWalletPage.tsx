@@ -2,20 +2,7 @@ import { useEffect } from "react";
 import { Button, Card, Spinner } from "@heroui/react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWalletStore } from "../../store/useWalletStore";
-
-// `useGrouping: "always"`: l'es-ES per defecte no separa els milers de quatre xifres («1234,56 €»).
-const eur = new Intl.NumberFormat("es-ES", {
-  style: "currency",
-  currency: "EUR",
-  useGrouping: "always",
-});
-
-// Partim dels cèntims enters i passem a Intl un decimal exacte: cap divisió en coma flotant.
-const formatEuroCents = (cents: number) => {
-  const euros = Math.trunc(cents / 100);
-  const rest = String(cents % 100).padStart(2, "0");
-  return eur.format(`${euros}.${rest}` as `${number}`);
-};
+import { formatEuroCents } from "../../service/money";
 
 const WalletIcon = () => (
   <svg
@@ -95,7 +82,7 @@ export default function MyWalletPage() {
 
                 {status === "success" && balance && (
                   <>
-                    <p className="text-[clamp(1.75rem,9vw,3rem)] font-semibold leading-tight tabular-nums break-words">
+                    <p className="text-[clamp(1.75rem,9vw,3rem)] font-semibold leading-tight tabular-nums wrap-break-word">
                       {formatEuroCents(balance.available_cents)}
                     </p>
                     {balance.available_cents === 0 && (
@@ -104,6 +91,21 @@ export default function MyWalletPage() {
                         Tu saldo disponible es de {formatEuroCents(0)}
                       </p>
                     )}
+                    {/* El compromès es mostra a part: està reservat i no es pot retirar. */}
+                    <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-brand-foreground/20 pt-5">
+                      <div className="min-w-0">
+                        <dt className="text-sm text-brand-foreground/80">Saldo comprometido</dt>
+                        <dd className="text-xl font-semibold tabular-nums wrap-break-word">
+                          {formatEuroCents(balance.committed_cents)}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-sm text-brand-foreground/80">Total</dt>
+                        <dd className="text-xl font-semibold tabular-nums wrap-break-word">
+                          {formatEuroCents(BigInt(balance.available_cents) + BigInt(balance.committed_cents))}
+                        </dd>
+                      </div>
+                    </dl>
                   </>
                 )}
               </div>
