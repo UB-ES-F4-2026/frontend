@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Alert, Button, Checkbox, FieldError, Input, Label, ListBox, Select, Spinner, TextField } from "@heroui/react";
+import { Alert, Button, Checkbox, Description, FieldError, Fieldset, Input, Label, ListBox, Select, Spinner, TextField } from "@heroui/react";
 import { Link, useNavigate } from "react-router";
 import { phoneCountries } from "./phoneCountries";
 import { normalizePhone, validatePersonalDetails } from "./validatePersonalDetails";
 import type { PersonalDetailsErrors } from "./validatePersonalDetails";
+import { validatePromotingEntity } from "./validatePromotingEntity";
+import type { PromotingEntityErrors } from "./validatePromotingEntity";
 import { validateAccessDetails } from "./validateAccessDetails";
 import type { AccessDetailsErrors } from "./validateAccessDetails";
 import registrationTeam from "../../assets/equip-thirdman.jpg";
@@ -36,6 +38,15 @@ const Register = () => {
   const clearPersonalError = (field: keyof PersonalDetailsErrors) => {
     setPersonalErrors((errors) => ({ ...errors, [field]: undefined }));
   };
+  // Entitat promotora (US01.9): els valors es conserven si es desmarca la casella, però no s'envien.
+  const [isPromoter, setIsPromoter] = useState(false);
+  const [legalName, setLegalName] = useState("");
+  const [foundingYear, setFoundingYear] = useState("");
+  const [location, setLocation] = useState("");
+  const [entityErrors, setEntityErrors] = useState<PromotingEntityErrors>({});
+  const clearEntityError = (field: keyof PromotingEntityErrors) => {
+    setEntityErrors((errors) => ({ ...errors, [field]: undefined }));
+  };
   const status = useAuthStore((state) => state.registrationStatus);
   const details = useAuthStore((state) => state.registrationDetails);
   const register = useAuthStore((state) => state.register);
@@ -60,8 +71,14 @@ const Register = () => {
     // Avançar de pas no envia cap petició al backend.
     if (step === 1) {
       const errors = validatePersonalDetails({ first_name: firstName, last_name: lastName, email, phone_country: phoneCountry, phone });
+      // Les dades de l'entitat només es validen si la casella està marcada.
+      const promoterErrors = isPromoter
+        ? validatePromotingEntity({ legal_name: legalName, founding_year: foundingYear, location })
+        : {};
       setPersonalErrors(errors);
-      const firstInvalidField = Object.keys(errors)[0];
+      setEntityErrors(promoterErrors);
+      // Els noms dels camps coincideixen amb les claus d'error: enfoquem el primer invàlid.
+      const firstInvalidField = [...Object.keys(errors), ...Object.keys(promoterErrors)][0];
       if (firstInvalidField) {
         const input = event.currentTarget.elements.namedItem(firstInvalidField);
         if (input instanceof HTMLElement) input.focus();
@@ -70,6 +87,9 @@ const Register = () => {
       setFirstName(firstName.trim());
       setLastName(lastName.trim());
       setEmail(email.trim());
+      setLegalName(legalName.trim());
+      setFoundingYear(foundingYear.trim());
+      setLocation(location.trim());
       setStep(2);
       return;
     }
@@ -91,7 +111,18 @@ const Register = () => {
       return;
     }
     const normalizedPhone = normalizePhone(phone, country.prefix);
-    const user = await register({ email, password, first_name: firstName.trim(), last_name: lastName.trim(), phone: normalizedPhone });
+    const account = { email, password, first_name: firstName.trim(), last_name: lastName.trim(), phone: normalizedPhone };
+    // Una sola petició amb el compte i, si la casella està marcada, l'entitat promotora.
+    const user = await register(isPromoter
+      ? {
+        ...account,
+        promoting_entity: {
+          legal_name: legalName.trim(),
+          founding_year: foundingYear.trim() ? Number(foundingYear.trim()) : null,
+          location: location.trim() || null,
+        },
+      }
+      : account);
     // Només sortim del formulari quan el servidor confirma la creació del compte.
     if (user) navigate("/login", { replace: true });
   };
@@ -129,7 +160,8 @@ const Register = () => {
             </div>
             <h1 ref={headingRef} tabIndex={-1} className="outline-none text-3xl font-bold tracking-tight sm:text-4xl">Crear mi cuenta</h1>
             <p className="max-w-sm text-sm leading-snug text-foreground/65">
-              {step === 1 ? "Comienza con tus datos personales. Todos los campos son obligatorios." : "Configura los datos de acceso a tu cuenta."}
+              {/* Amb els camps opcionals de l'entitat, «Todos los campos son obligatorios» ja no és cert. */}
+              {step === 1 ? "Comienza con tus datos personales." : "Configura los datos de acceso a tu cuenta."}
             </p>
           </header>
           <div>
@@ -213,6 +245,77 @@ const Register = () => {
                       Introduce el número sin el prefijo internacional.
                     </p>
                   </fieldset>
+                  {/* US01.9: desmarcada per defecte; els camps de l'entitat només existeixen si està marcada. */}
+                  <Checkbox name="is_promoter" isDisabled={isSubmitting} isSelected={isPromoter}
+                    aria-describedby="register-promoter-help" className="mt-1"
+                    onChange={(selected) => { setIsPromoter(selected); if (!selected) setEntityErrors({}); }}>
+                    <Checkbox.Content className="items-start gap-3">
+                      <Checkbox.Control className="mt-0.5 size-4 shrink-0 border border-foreground/40">
+                        <Checkbox.Indicator className={isPromoter ? undefined : "invisible"}>
+                          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-full">
+                            <path d="m5 12 4 4L19 6" />
+                          </svg>
+                        </Checkbox.Indicator>
+                      </Checkbox.Control>
+                      <div className="flex flex-col">
+                        <Label className="text-sm font-medium text-foreground/90">Registrarme como entidad promotora</Label>
+                        <p id="register-promoter-help" className="text-xs leading-relaxed text-foreground/65">
+                          Necesario para publicar oportunidades.
+                        </p>
+                      </div>
+                    </Checkbox.Content>
+                  </Checkbox>
+                  {isPromoter && (
+                    <Fieldset className="flex min-w-0 flex-col gap-3 border-l-4 border-warning pl-4">
+                      <Fieldset.Legend className="mb-3 text-sm font-semibold text-foreground">Datos de la entidad</Fieldset.Legend>
+                      <TextField name="legal_name" validationBehavior="aria" isInvalid={!!entityErrors.legal_name} isRequired isDisabled={isSubmitting} className="min-w-0">
+                        <Label className="text-sm font-medium text-foreground/90">Razón social</Label>
+                        <Input
+                          className="h-10 w-full min-w-0 rounded-xl border border-foreground/15 bg-background px-4 text-foreground shadow-none placeholder:text-foreground/40 focus:border-warning focus:ring-2 focus:ring-warning/30"
+                          name="legal_name"
+                          autoComplete="organization"
+                          placeholder="Nombre legal de la entidad"
+                          required
+                          value={legalName}
+                          onChange={(event) => { setLegalName(event.target.value); clearEntityError("legal_name"); }}
+                        />
+                        <FieldError>{entityErrors.legal_name}</FieldError>
+                      </TextField>
+                      <TextField name="founding_year" validationBehavior="aria" isInvalid={!!entityErrors.founding_year} isDisabled={isSubmitting} className="min-w-0">
+                        <Label className="text-sm font-medium text-foreground/90">
+                          Año de fundación <span className="font-normal text-foreground/50">(opcional)</span>
+                        </Label>
+                        {/* Text amb teclat numèric: un type="number" acceptaria «1e3» o decimals. */}
+                        <Input
+                          className="h-10 w-full max-w-40 rounded-xl border border-foreground/15 bg-background px-4 text-foreground shadow-none placeholder:text-foreground/40 focus:border-warning focus:ring-2 focus:ring-warning/30"
+                          name="founding_year"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={foundingYear}
+                          onChange={(event) => { setFoundingYear(event.target.value); clearEntityError("founding_year"); }}
+                        />
+                        <FieldError>{entityErrors.founding_year}</FieldError>
+                        <Description className="text-xs leading-relaxed text-foreground/65">
+                          Lo usamos para mostrar tus años de experiencia.
+                        </Description>
+                      </TextField>
+                      <TextField name="location" validationBehavior="aria" isInvalid={!!entityErrors.location} isDisabled={isSubmitting} className="min-w-0">
+                        <Label className="text-sm font-medium text-foreground/90">
+                          Ubicación <span className="font-normal text-foreground/50">(opcional)</span>
+                        </Label>
+                        <Input
+                          className="h-10 w-full min-w-0 rounded-xl border border-foreground/15 bg-background px-4 text-foreground shadow-none placeholder:text-foreground/40 focus:border-warning focus:ring-2 focus:ring-warning/30"
+                          name="location"
+                          autoComplete="off"
+                          placeholder="Ciudad, provincia, país"
+                          value={location}
+                          onChange={(event) => { setLocation(event.target.value); clearEntityError("location"); }}
+                        />
+                        <FieldError>{entityErrors.location}</FieldError>
+                      </TextField>
+                    </Fieldset>
+                  )}
                 </>
               )}
               {/* El text d’ajuda queda vinculat al camp per als lectors de pantalla. */}
