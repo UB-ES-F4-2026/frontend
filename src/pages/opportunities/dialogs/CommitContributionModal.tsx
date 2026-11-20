@@ -172,9 +172,19 @@ const CommitContributionModal = ({ opportunity, onClose }: CommitContributionMod
 
   const handleConfirm = async () => {
     const outcome = await commitContribution(opportunity.id, amountCents);
-    if (!outcome) return;
-    setAvailableAfter(outcome.available_cents);
-    setStep("done");
+    if (outcome) {
+      setAvailableAfter(outcome.available_cents);
+      setStep("done");
+      return;
+    }
+    // Un import que el backend rebutja es corregeix al camp, amb l'error a sota (contracte US03.1).
+    const { commitError: kind, commitDetails: message } = useOpportunityStore.getState();
+    if (kind === "below_minimum" || kind === "invalid_amount") {
+      resetCommitment();
+      setAmountError(message);
+      setInsufficientFunds(false);
+      setStep("amount");
+    }
   };
 
   const handleBack = () => {
@@ -336,7 +346,8 @@ const CommitContributionModal = ({ opportunity, onClose }: CommitContributionMod
                   </Checkbox.Content>
                 </Checkbox>
 
-                {commitStatus === "error" && (
+                {/* Una sessió caducada no té missatge: SessionManager ja porta al login. */}
+                {commitStatus === "error" && commitDetails && (
                   <div role="alert">
                     <Alert status="danger">
                       <Alert.Indicator />
@@ -359,14 +370,13 @@ const CommitContributionModal = ({ opportunity, onClose }: CommitContributionMod
                 <Button variant="secondary" className={SECONDARY} isDisabled={submitting} onPress={handleBack}>
                   Volver
                 </Button>
-                {/* Un error de saldo o de disponibilitat no es resol tornant a confirmar. */}
+                {/* Només un error inesperat (p. ex. de connexió) es pot resoldre tornant a confirmar. */}
                 <Button
                   className={PRIMARY}
                   isDisabled={
                     !acceptedRisks ||
                     submitting ||
-                    commitError === "not_accepted" ||
-                    commitError === "insufficient_funds"
+                    (commitError !== null && commitError !== "unexpected")
                   }
                   onPress={() => void handleConfirm()}
                 >

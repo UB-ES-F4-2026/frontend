@@ -97,8 +97,11 @@ describe("useOpportunityStore: comprometre una aportació", () => {
   it.each([
     ["409 saldo insuficient", new ApiError("Insufficient funds", 409, null), "insufficient_funds", "No tienes saldo suficiente para esta aportación."],
     ["409 ja no admet", new ApiError("Opportunity no longer accepts this contribution", 409, null), "not_accepted", "Esta oportunidad ya no admite esta aportación."],
-    ["404 no disponible", new ApiError("Opportunity not available", 404, null), "not_accepted", "Esta oportunidad ya no admite esta aportación."],
-    ["422 per sota del mínim", new ApiError("Amount below the minimum contribution", 422, null), "not_accepted", "Esta oportunidad ya no admite esta aportación."],
+    ["401 sessió caducada", new ApiError("Invalid or missing session", 401, null), "session_expired", ""],
+    ["404 no disponible", new ApiError("Opportunity not available", 404, null), "not_available", "Esta oportunidad ya no está disponible."],
+    ["422 per sota del mínim", new ApiError("Amount below the minimum contribution", 422, null), "below_minimum", "El importe es inferior a la aportación mínima."],
+    ["422 amb llista d'errors", new ApiError("HTTP Error 422", 422, { detail: [{ loc: ["body", "amount_cents"], msg: "Input should be a valid integer" }] }), "invalid_amount", "Introduce un importe válido, por ejemplo 100,00."],
+    ["409 amb un altre text", new ApiError("Conflict", 409, null), "not_accepted", "Esta oportunidad ya no admite esta aportación."],
     ["500", new ApiError("Server error", 500, null), "unexpected", "No se ha podido comprometer la aportación. Inténtalo de nuevo."],
     ["xarxa", new TypeError("Failed to fetch"), "unexpected", "No se ha podido comprometer la aportación. Inténtalo de nuevo."],
   ])("davant un error %s no canvia ni el saldo ni el capital compromès", async (_label, error, kind, message) => {

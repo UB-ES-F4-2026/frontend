@@ -1,6 +1,7 @@
 import { formatEuroCents } from "../../../service/money";
 
 export const INSUFFICIENT_FUNDS_MESSAGE = "No tienes saldo suficiente para esta aportación.";
+export const INVALID_AMOUNT_MESSAGE = "Introduce un importe válido, por ejemplo 100,00.";
 
 export interface ContributionLimits {
   // null: l'oportunitat no té aportació mínima.
@@ -114,7 +115,7 @@ export const formatAmountInput = (
 
 const FORMAT_ERRORS = {
   empty: "Introduce el importe de la aportación.",
-  invalid: "Introduce un importe válido, por ejemplo 100,00.",
+  invalid: INVALID_AMOUNT_MESSAGE,
   decimals: "El importe no puede tener más de dos decimales.",
 } as const;
 

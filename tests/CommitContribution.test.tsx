@@ -374,6 +374,50 @@ describe("7. L'oportunitat deixa d'admetre l'aportació", () => {
     expect(within(alert).getByRole("link", { name: "Ingresar fondos" })).toHaveAttribute("href", "/my-balance");
   });
 
+  it("si l'oportunitat ja no és disponible (404), ho indica i no deixa tornar a confirmar", async () => {
+    post.mockRejectedValue(new ApiError("Opportunity not available", 404, null));
+    const u = user();
+    await openDialog(u);
+    const confirmation = await goToConfirmation(u);
+    await u.click(within(confirmation).getByRole("checkbox"));
+    await u.click(within(confirmation).getByRole("button", { name: "Confirmar aportación" }));
+
+    expect(await within(confirmation).findByRole("alert")).toHaveTextContent("Esta oportunidad ya no está disponible.");
+    expect(within(confirmation).getByRole("button", { name: "Confirmar aportación" })).toBeDisabled();
+    expect(useOpportunityStore.getState().realEstateOpportunity?.committed_cents).toBe(45_000_00);
+  });
+
+  it.each([
+    ["el mínim ha canviat (422)", new ApiError("Amount below the minimum contribution", 422, null), "El importe es inferior a la aportación mínima."],
+    ["l'import no té un format vàlid (422)", new ApiError("HTTP Error 422", 422, { detail: [{ loc: ["body", "amount_cents"] }] }), "Introduce un importe válido, por ejemplo 100,00."],
+  ])("si %s, torna al pas de l'import amb l'error sota el camp", async (_label, error, message) => {
+    post.mockRejectedValue(error);
+    const u = user();
+    await openDialog(u);
+    const confirmation = await goToConfirmation(u, "150");
+    await u.click(within(confirmation).getByRole("checkbox"));
+    await u.click(within(confirmation).getByRole("button", { name: "Confirmar aportación" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Comprometer aportación" });
+    expect(amountField()).toHaveValue("150,00");
+    expect(amountField()).toHaveAttribute("aria-invalid", "true");
+    expect(amountField()).toHaveAccessibleDescription(expect.stringContaining(message));
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+    expect(useWalletStore.getState().balance).toMatchObject({ available_cents: 250_00, committed_cents: 0 });
+  });
+
+  it("si la sessió ha caducat (401), no mostra cap missatge al diàleg (SessionManager porta al login)", async () => {
+    post.mockRejectedValue(new ApiError("Invalid or missing session", 401, null));
+    const u = user();
+    await openDialog(u);
+    const confirmation = await goToConfirmation(u);
+    await u.click(within(confirmation).getByRole("checkbox"));
+    await u.click(within(confirmation).getByRole("button", { name: "Confirmar aportación" }));
+
+    await vi.waitFor(() => expect(useOpportunityStore.getState().commitError).toBe("session_expired"));
+    expect(within(confirmation).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("davant un error de connexió permet tornar a confirmar", async () => {
     post.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     post.mockResolvedValueOnce(commitmentResult(100_00, 45_100_00, wallet(150_00, 100_00)));

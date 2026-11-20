@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { fintechGet, fintechPost, ApiError, RequestStatus } from "../service/api";
-import { INSUFFICIENT_FUNDS_MESSAGE } from "../pages/opportunities/dialogs/contributionAmount";
+import {
+  INSUFFICIENT_FUNDS_MESSAGE,
+  INVALID_AMOUNT_MESSAGE,
+} from "../pages/opportunities/dialogs/contributionAmount";
 import { useWalletStore } from "./useWalletStore";
 
 export type OpportunityType = "real_estate" | "equity";
@@ -70,9 +73,23 @@ export interface CommitmentResult {
 }
 
 // Què ha passat en confirmar, perquè el diàleg sàpiga quines accions oferir.
-export type CommitmentErrorKind = "insufficient_funds" | "not_accepted" | "unexpected";
+export type CommitmentErrorKind =
+  | "session_expired"
+  | "not_available"
+  | "below_minimum"
+  | "invalid_amount"
+  | "insufficient_funds"
+  | "not_accepted"
+  | "unexpected";
 
+// Contracte del backend (US03.1). Els dos 409 i els dos 422 només es distingeixen pel `detail`.
 export const COMMITMENT_ERRORS: Record<CommitmentErrorKind, string> = {
+  // SessionManager ja porta al login: el diàleg no mostra res.
+  session_expired: "",
+  not_available: "Esta oportunidad ya no está disponible.",
+  // El mínim ha canviat al backend; el diàleg només coneix l'anterior, per això no es mostra la xifra.
+  below_minimum: "El importe es inferior a la aportación mínima.",
+  invalid_amount: INVALID_AMOUNT_MESSAGE,
   insufficient_funds: INSUFFICIENT_FUNDS_MESSAGE,
   not_accepted: "Esta oportunidad ya no admite esta aportación.",
   unexpected: "No se ha podido comprometer la aportación. Inténtalo de nuevo.",
@@ -84,13 +101,23 @@ export interface CommitmentOutcome {
   available_cents: number | null;
 }
 
-// 409 «Insufficient funds»: el saldo ha canviat des de la validació del diàleg.
-// 404, 409 i 422: l'oportunitat ja no està en finançament, no té prou pendent o el mínim ha canviat.
 const toCommitmentError = (error: unknown): CommitmentErrorKind => {
   if (!(error instanceof ApiError)) return "unexpected";
-  if (error.status === 409 && error.message === "Insufficient funds") return "insufficient_funds";
-  if ([404, 409, 422].includes(error.status)) return "not_accepted";
-  return "unexpected";
+  switch (error.status) {
+    case 401:
+      return "session_expired";
+    case 404:
+      return "not_available";
+    case 409:
+      // «Insufficient funds»: el saldo ha canviat des de la validació del diàleg. Qualsevol altre
+      // 409: ja no està en finançament o no li queda prou capital pendent.
+      return error.message === "Insufficient funds" ? "insufficient_funds" : "not_accepted";
+    case 422:
+      // Text: el mínim ha canviat. Llista d'errors de FastAPI: l'import no té un format vàlid.
+      return error.message === "Amount below the minimum contribution" ? "below_minimum" : "invalid_amount";
+    default:
+      return "unexpected";
+  }
 };
 
 const isCents = (value: unknown): value is number =>
