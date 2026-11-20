@@ -418,6 +418,69 @@ describe("7. L'oportunitat deixa d'admetre l'aportació", () => {
     expect(within(confirmation).queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  // Regressió: «Volver» esborrava l'error i permetia tornar a enviar la mateixa aportació.
+  it.each([
+    ["404 no disponible", new ApiError("Opportunity not available", 404, null)],
+    ["409 ja no admet", new ApiError("Opportunity no longer accepts this contribution", 409, null)],
+    ["409 saldo insuficient", new ApiError("Insufficient funds", 409, null)],
+  ])("després d'un %s no es pot tornar enrere ni reenviar l'aportació", async (_label, error) => {
+    post.mockRejectedValue(error);
+    const u = user();
+    await openDialog(u);
+    const confirmation = await goToConfirmation(u);
+    await u.click(within(confirmation).getByRole("checkbox"));
+    await u.click(within(confirmation).getByRole("button", { name: "Confirmar aportación" }));
+    await within(confirmation).findByRole("alert");
+
+    const back = within(confirmation).getByRole("button", { name: "Volver" });
+    expect(back).toBeDisabled();
+    expect(within(confirmation).getByRole("button", { name: "Confirmar aportación" })).toBeDisabled();
+    expect(within(confirmation).getByText("Cierra este diálogo para ver la oportunidad actualizada.")).toBeInTheDocument();
+
+    await u.click(back);
+    expect(screen.queryByRole("dialog", { name: "Comprometer aportación" })).not.toBeInTheDocument();
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it("en tancar després d'un error, torna a llegir el detall sense recarregar la pàgina", async () => {
+    post.mockRejectedValue(new ApiError("Opportunity no longer accepts this contribution", 409, null));
+    const u = user();
+    await openDialog(u);
+    const confirmation = await goToConfirmation(u);
+    await u.click(within(confirmation).getByRole("checkbox"));
+    await u.click(within(confirmation).getByRole("button", { name: "Confirmar aportación" }));
+    await within(confirmation).findByRole("alert");
+
+    // Mentrestant, una altra persona ha completat l'objectiu.
+    api.detail = buildDetail({ committed_cents: 72_000_00 });
+    const detailReads = get.mock.calls.filter(([path]) => path === "/opportunities/7").length;
+    await u.click(within(confirmation).getByRole("button", { name: "Cerrar diálogo" }));
+
+    expect(await screen.findByText("Financiación completada")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Quiero invertir" })).toBeDisabled();
+    expect(get.mock.calls.filter(([path]) => path === "/opportunities/7")).toHaveLength(detailReads + 1);
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it("després d'un 422 pel mínim, valida amb el mínim actualitzat i no reenvia el mateix import", async () => {
+    post.mockRejectedValue(new ApiError("Amount below the minimum contribution", 422, null));
+    const u = user();
+    await openDialog(u);
+    const confirmation = await goToConfirmation(u, "150");
+    await u.click(within(confirmation).getByRole("checkbox"));
+
+    // El mínim ha pujat a 200,00 € des que es va obrir el diàleg.
+    api.detail = buildDetail({ minimum_contribution_cents: 200_00 });
+    await u.click(within(confirmation).getByRole("button", { name: "Confirmar aportación" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Comprometer aportación" });
+    await vi.waitFor(() => expect(valueOf(dialog, "Aportación mínima")).toHaveTextContent("200,00 €"));
+    await u.click(within(dialog).getByRole("button", { name: "Continuar" }));
+    expect(within(dialog).getByText("La aportación mínima es de 200,00 €.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Confirma tu aportación" })).not.toBeInTheDocument();
+    expect(post).toHaveBeenCalledOnce();
+  });
+
   it("davant un error de connexió permet tornar a confirmar", async () => {
     post.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     post.mockResolvedValueOnce(commitmentResult(100_00, 45_100_00, wallet(150_00, 100_00)));

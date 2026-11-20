@@ -116,6 +116,7 @@ const BackLink = () => (
 const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOpportunityGetResponse }) => {
   const now = useNow();
   const [isContributionOpen, setContributionOpen] = useState(false);
+  const refreshRealEstateOpportunity = useOpportunityStore((state) => state.refreshRealEstateOpportunity);
 
   const real_estate = opportunity.real_estate;
   const promoter = opportunity.promoter;
@@ -259,6 +260,7 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
             <CommitContributionModal
               opportunity={opportunity}
               onClose={() => setContributionOpen(false)}
+              onRefresh={() => void refreshRealEstateOpportunity(opportunity.id)}
             />
           )}
         </div>

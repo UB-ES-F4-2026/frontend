@@ -142,6 +142,8 @@ interface OpportunityState {
   detailDetails: string;
   realEstateOpportunity: RealEstateOpportunityGetResponse | null;
   fetchRealEstateOpportunity: (id: number) => Promise<void>;
+  // Torna a llegir el detall que ja es mostra sense passar per «loading» (no desmunta la pàgina).
+  refreshRealEstateOpportunity: (id: number) => Promise<void>;
   commitStatus: "idle" | RequestStatus;
   commitError: CommitmentErrorKind | null;
   commitDetails: string;
@@ -185,6 +187,21 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
         } catch (error : unknown) {
             if (requestId !== latestDetailRequest) return;
             set({ detailStatus: "error", detailDetails: toErrorMessage(error), realEstateOpportunity: null });
+        }
+    },
+    refreshRealEstateOpportunity: async (id) => {
+        // Només actualitza el detall que es mostra, i no invalida una càrrega completa en curs.
+        const isCurrent = () => get().detailId === id && get().detailStatus === "success";
+        if (!isCurrent()) return;
+        const requestId = latestDetailRequest;
+        try {
+            const data = await fintechGet<RealEstateOpportunityGetResponse>(`/opportunities/${id}`, {
+                signal: AbortSignal.timeout(5000)
+            });
+            if (requestId !== latestDetailRequest || !isCurrent() || data?.id !== id) return;
+            set({ realEstateOpportunity: data });
+        } catch {
+            // Si falla, es manté el detall que ja es mostrava.
         }
     },
     commitStatus: "idle",

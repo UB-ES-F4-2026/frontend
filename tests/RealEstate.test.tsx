@@ -21,6 +21,7 @@ const opportunityState = vi.hoisted(() => ({
   detailDetails: "",
   realEstateOpportunity: null as RealEstateOpportunityGetResponse | null,
   fetchRealEstateOpportunity: vi.fn(),
+  refreshRealEstateOpportunity: vi.fn(),
   commitStatus: "idle" as "idle" | "loading" | "success" | "error",
   commitError: null,
   commitDetails: "",

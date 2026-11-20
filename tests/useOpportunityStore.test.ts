@@ -116,6 +116,37 @@ describe("useOpportunityStore: comprometre una aportació", () => {
     expect(useWalletStore.getState().balance).toEqual(startingBalance);
   });
 
+  it("refreshRealEstateOpportunity actualitza el detall sense passar per «loading»", async () => {
+    let resolve!: (value: unknown) => void;
+    get.mockReturnValue(new Promise((done) => { resolve = done; }));
+    const pending = useOpportunityStore.getState().refreshRealEstateOpportunity(7);
+    expect(useOpportunityStore.getState()).toMatchObject({ detailStatus: "success", realEstateOpportunity: detail });
+    resolve({ ...detail, committed_cents: 72_000_00 });
+    await pending;
+    expect(get).toHaveBeenCalledWith("/opportunities/7", expect.anything());
+    expect(useOpportunityStore.getState().realEstateOpportunity?.committed_cents).toBe(72_000_00);
+  });
+
+  it("refreshRealEstateOpportunity conserva el detall si la consulta falla", async () => {
+    get.mockRejectedValue(new TypeError("Failed to fetch"));
+    await useOpportunityStore.getState().refreshRealEstateOpportunity(7);
+    expect(useOpportunityStore.getState()).toMatchObject({ detailStatus: "success", realEstateOpportunity: detail });
+  });
+
+  it("refreshRealEstateOpportunity no toca un detall que ja no es mostra", async () => {
+    await useOpportunityStore.getState().refreshRealEstateOpportunity(8);
+    expect(get).not.toHaveBeenCalled();
+
+    let resolve!: (value: unknown) => void;
+    get.mockReturnValue(new Promise((done) => { resolve = done; }));
+    const pending = useOpportunityStore.getState().refreshRealEstateOpportunity(7);
+    // Mentrestant l'usuari obre una altra oportunitat.
+    useOpportunityStore.setState({ detailId: 9, realEstateOpportunity: null, detailStatus: "loading" });
+    resolve({ ...detail, committed_cents: 72_000_00 });
+    await pending;
+    expect(useOpportunityStore.getState()).toMatchObject({ detailId: 9, realEstateOpportunity: null });
+  });
+
   it("resetCommitment deixa l'estat del compromís com al principi", async () => {
     post.mockRejectedValue(new TypeError("Failed to fetch"));
     await useOpportunityStore.getState().commitContribution(7, 100_00);

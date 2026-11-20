@@ -43,6 +43,8 @@ export interface ContributionOpportunity {
 interface CommitContributionModalProps {
   opportunity: ContributionOpportunity;
   onClose: () => void;
+  // El backend ha rebutjat l'aportació: cal tornar a llegir l'oportunitat sense desmuntar la pàgina.
+  onRefresh: () => void;
 }
 
 type Step = "amount" | "confirm" | "done";
@@ -84,7 +86,7 @@ const SummaryItem = ({ label, children }: { label: string; children: ReactNode }
   </div>
 );
 
-const CommitContributionModal = ({ opportunity, onClose }: CommitContributionModalProps) => {
+const CommitContributionModal = ({ opportunity, onClose, onRefresh }: CommitContributionModalProps) => {
   const navigate = useNavigate();
 
   const walletStatus = useWalletStore((state) => state.status);
@@ -146,6 +148,10 @@ const CommitContributionModal = ({ opportunity, onClose }: CommitContributionMod
   }, [fetchBalance, resetCommitment, resetWallet]);
 
   const submitting = commitStatus === "loading";
+  // 401, 404 i 409: tornar a confirmar o tornar enrere no ho resol, perquè les dades del diàleg
+  // ja no són vigents. Només es pot tancar; en fer-ho es torna a llegir l'oportunitat.
+  // Un error inesperat (p. ex. de connexió) sí que es pot reintentar.
+  const blocked = commitError !== null && commitError !== "unexpected";
   const remainingCents = Math.max(0, opportunity.target_amount_cents - opportunity.committed_cents);
   const minimumCents = requiredMinimumCents(opportunity.minimum_contribution_cents, remainingCents);
   const availableCents = walletStatus === "success" && balance ? balance.available_cents : null;
@@ -178,19 +184,29 @@ const CommitContributionModal = ({ opportunity, onClose }: CommitContributionMod
       return;
     }
     // Un import que el backend rebutja es corregeix al camp, amb l'error a sota (contracte US03.1).
+    // Es torna a llegir l'oportunitat perquè la validació faci servir el mínim i el pendent actuals.
     const { commitError: kind, commitDetails: message } = useOpportunityStore.getState();
     if (kind === "below_minimum" || kind === "invalid_amount") {
       resetCommitment();
       setAmountError(message);
       setInsufficientFunds(false);
       setStep("amount");
+      onRefresh();
     }
   };
 
   const handleBack = () => {
+    if (blocked) return;
     // L'import es conserva per poder-lo corregir.
     resetCommitment();
     setStep("amount");
+  };
+
+  const close = () => {
+    if (submitting) return;
+    // Amb la sessió caducada no cal: SessionManager ja porta al login.
+    if (blocked && commitError !== "session_expired") onRefresh();
+    onClose();
   };
 
   return (
@@ -199,7 +215,7 @@ const CommitContributionModal = ({ opportunity, onClose }: CommitContributionMod
       isDismissable={!submitting}
       isKeyboardDismissDisabled={submitting}
       onOpenChange={(open) => {
-        if (!open && !submitting) onClose();
+        if (!open) close();
       }}
     >
       <Modal.Container>
@@ -281,7 +297,7 @@ const CommitContributionModal = ({ opportunity, onClose }: CommitContributionMod
                   </div>
                 </Modal.Body>
                 <Modal.Footer className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <Button variant="secondary" className={SECONDARY} onPress={onClose}>
+                  <Button variant="secondary" className={SECONDARY} onPress={close}>
                     Cancelar
                   </Button>
                   <Button type="submit" className={PRIMARY} isDisabled={availableCents === null}>
@@ -363,21 +379,26 @@ const CommitContributionModal = ({ opportunity, onClose }: CommitContributionMod
                         </Alert.Description>
                       </Alert.Content>
                     </Alert>
+                    {blocked && (
+                      <p className="mt-2 text-xs text-muted">
+                        Cierra este diálogo para ver la oportunidad actualizada.
+                      </p>
+                    )}
                   </div>
                 )}
               </Modal.Body>
               <Modal.Footer className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button variant="secondary" className={SECONDARY} isDisabled={submitting} onPress={handleBack}>
+                <Button
+                  variant="secondary"
+                  className={SECONDARY}
+                  isDisabled={submitting || blocked}
+                  onPress={handleBack}
+                >
                   Volver
                 </Button>
-                {/* Només un error inesperat (p. ex. de connexió) es pot resoldre tornant a confirmar. */}
                 <Button
                   className={PRIMARY}
-                  isDisabled={
-                    !acceptedRisks ||
-                    submitting ||
-                    (commitError !== null && commitError !== "unexpected")
-                  }
+                  isDisabled={!acceptedRisks || submitting || blocked}
                   onPress={() => void handleConfirm()}
                 >
                   {submitting && <Spinner size="sm" color="current" aria-hidden="true" />}
@@ -413,7 +434,7 @@ const CommitContributionModal = ({ opportunity, onClose }: CommitContributionMod
                 <Button variant="secondary" className={SECONDARY} onPress={() => navigate("/my-balance")}>
                   Ver mi saldo
                 </Button>
-                <Button autoFocus className={PRIMARY} onPress={onClose}>
+                <Button autoFocus className={PRIMARY} onPress={close}>
                   Cerrar
                 </Button>
               </Modal.Footer>
