@@ -15,6 +15,7 @@ import LocationMap from "../common/OpportunityLocationMap";
 import { useNow } from "../../../hooks/useNow";
 import { useAuthStore } from "../../../store/useAuthStore";
 import OpportunityInvestmentButton from "../common/OpportunityInvestmentButton";
+import CommitContributionModal from "../dialogs/CommitContributionModal";
 
 /* -------------------------------------------------------------------------- */
 /*  Formato                                                                   */
@@ -114,6 +115,8 @@ const BackLink = () => (
 
 const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOpportunityGetResponse }) => {
   const now = useNow();
+  const [isContributionOpen, setContributionOpen] = useState(false);
+  const refreshRealEstateOpportunity = useOpportunityStore((state) => state.refreshRealEstateOpportunity);
 
   const real_estate = opportunity.real_estate;
   const promoter = opportunity.promoter;
@@ -124,9 +127,16 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
   const barWidth = Math.min(100, ratio * 100);
   const percentLabel = percent.format(ratio);
   const fundingClosed = now >= new Date(opportunity.deadline).getTime();
+  const targetReached = opportunity.committed_cents >= opportunity.target_amount_cents;
+  // Un termini vençut té prioritat: la financiació ja no estava en curs.
+  const fundingStatus = fundingClosed
+    ? { label: "Plazo finalizado", dot: "bg-muted" }
+    : targetReached
+      ? { label: "Financiación completada", dot: "bg-success" }
+      : { label: "En financiación", dot: "bg-warning" };
 
   const { intro, summary } = splitDescription(opportunity.description);
-  const investmentButtonDisabled = opportunity.committed_cents >= opportunity.target_amount_cents || fundingClosed;
+  const investmentButtonDisabled = targetReached || fundingClosed;
   
   let galleryImages: GalleryImage[] = [];
   if(real_estate.images && real_estate.images.length > 0) {
@@ -152,9 +162,7 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
   ].filter((item): item is { label: string; date: string } => item.date !== null);
 
   const handleInvestmentButton = () => {
-    if(!investmentButtonDisabled){
-      alert("Funcionalidad de inversión disponible en futuras iteraciones.")
-    }
+    if (!investmentButtonDisabled) setContributionOpen(true);
   };
 
   return (
@@ -185,9 +193,9 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
             <span className="inline-flex items-center self-start rounded-full border border-border bg-muted/10 px-4 py-2 text-xs font-semibold text-foreground">
               <span
                 aria-hidden="true"
-                className={`mr-2 size-[7px] rounded-full ${fundingClosed ? "bg-muted" : "bg-warning"}`}
+                className={`mr-2 size-[7px] rounded-full ${fundingStatus.dot}`}
               />
-              {fundingClosed ? "Plazo finalizado" : "En financiación"}
+              {fundingStatus.label}
             </span>
 
             <p className="mt-4 text-xs text-muted">Capital comprometido</p>
@@ -241,12 +249,20 @@ const RealEstateDetailContent = ({ opportunity }: { opportunity: RealEstateOppor
               )}
             </dl>
             <dl className="mt-5 border-t border-border pt-4">
-              <OpportunityInvestmentButton 
-                disabled={investmentButtonDisabled} 
-                investmentHandler={handleInvestmentButton} 
+              <OpportunityInvestmentButton
+                disabled={investmentButtonDisabled}
+                investmentHandler={handleInvestmentButton}
               />
             </dl>
           </Card>
+          {/* Es munta en obrir-lo: cada obertura comença de zero i torna a llegir el saldo. */}
+          {isContributionOpen && (
+            <CommitContributionModal
+              opportunity={opportunity}
+              onClose={() => setContributionOpen(false)}
+              onRefresh={() => void refreshRealEstateOpportunity(opportunity.id)}
+            />
+          )}
         </div>
 
         <p className="mt-7 mb-[18px] flex items-start gap-3 rounded-xl border border-border bg-surface px-[22px] py-[18px] text-sm leading-[1.7] text-muted">

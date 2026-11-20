@@ -2,21 +2,7 @@ import { useEffect } from "react";
 import { Button, Card, Spinner } from "@heroui/react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWalletStore } from "../../store/useWalletStore";
-
-// `useGrouping: "always"`: l'es-ES per defecte no separa els milers de quatre xifres («1234,56 €»).
-const eur = new Intl.NumberFormat("es-ES", {
-  style: "currency",
-  currency: "EUR",
-  useGrouping: "always",
-});
-
-// Partim dels cèntims enters i passem a Intl un decimal exacte: cap divisió en coma flotant.
-// Amb BigInt, el total (disponible + compromès) és exacte encara que superi 2^53 - 1.
-const formatEuroCents = (cents: number | bigint) => {
-  const value = BigInt(cents);
-  const rest = String(value % 100n).padStart(2, "0");
-  return eur.format(`${value / 100n}.${rest}` as `${number}`);
-};
+import { formatEuroCents } from "../../service/money";
 
 const WalletIcon = () => (
   <svg

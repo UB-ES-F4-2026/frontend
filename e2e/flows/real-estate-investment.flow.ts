@@ -125,18 +125,19 @@ export const registerRealEstateInvestmentFlow = () => {
         ).toBeVisible();
       });
 
-      await test.step("6. Pulsar en 'Quiero invertir' y comprobar que se abre el alert", async () => {
+      await test.step("6. Pulsar en 'Quiero invertir', comprobar el diálogo de aportación y cancelarlo", async () => {
         const investButton = page.getByRole("button", { name: "Quiero invertir" });
         await expect(investButton).toBeEnabled();
-
-        page.once("dialog", async (dialog) => {
-          expect(dialog.message()).toBe(
-            "Funcionalidad de inversión disponible en futuras iteraciones."
-          );
-          await dialog.accept();
-        });
-
         await investButton.click();
+
+        // L'usuari és nou: el diàleg s'obre amb el seu saldo, però no es compromet res.
+        const dialog = page.getByRole("dialog", { name: "Comprometer aportación" });
+        await expect(dialog).toBeVisible();
+        await expect(dialog.getByText(realEstateTitle, { exact: true })).toBeVisible();
+        await expect(dialog.getByRole("textbox", { name: /Importe de la aportación/ })).toBeVisible();
+
+        await dialog.getByRole("button", { name: "Cancelar" }).click();
+        await expect(dialog).toBeHidden();
       });
 
       await test.step("7. Interactuar con el mapa de ubicación aproximada", async () => {
