@@ -8,6 +8,7 @@ import type {
   Opportunity,
   RealEstateOpportunityGetResponse,
 } from "../src/store/useOpportunityStore";
+import { fintechGet } from "../src/service/api";
 
 // Estado simulado de useOpportunityStore
 const opportunityState = vi.hoisted(() => ({
@@ -20,6 +21,11 @@ const opportunityState = vi.hoisted(() => ({
   detailDetails: "",
   realEstateOpportunity: null as RealEstateOpportunityGetResponse | null,
   fetchRealEstateOpportunity: vi.fn(),
+  commitStatus: "idle" as "idle" | "loading" | "success" | "error",
+  commitError: null,
+  commitDetails: "",
+  commitContribution: vi.fn(),
+  resetCommitment: vi.fn(),
 }));
 
 // Estado simulado de useAuthStore (para probar protección de ruta, acceso desde OpportunityCard y modal)
@@ -52,6 +58,12 @@ vi.mock("../src/store/useAuthStore", () => ({
 
 vi.mock("../src/hooks/useNow", () => ({
   useNow: () => nowRef.value,
+}));
+
+// El diàleg d'aportació consulta el saldo amb el store real; només simulem l'API.
+vi.mock("../src/service/api", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../src/service/api")>(),
+  fintechGet: vi.fn(),
 }));
 
 function buildRealEstateOpportunity(
@@ -132,6 +144,9 @@ beforeEach(() => {
   opportunityState.detailId = 23;
   opportunityState.detailDetails = "";
   opportunityState.realEstateOpportunity = buildRealEstateOpportunity();
+  opportunityState.commitStatus = "idle";
+
+  vi.mocked(fintechGet).mockResolvedValue({ available_cents: 250_00, committed_cents: 0, currency: "eur" });
 
   authState.status = "idle";
   authState.details = "";
@@ -336,8 +351,7 @@ describe("RealEstateDetail - Contenido del detalle inmobiliario e inversión", (
     ).toBeInTheDocument();
   });
 
-  it("habilita el botón 'Quiero invertir', muestra el texto informativo de condiciones y lanza el aviso al pulsarlo", async () => {
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+  it("habilita el botón 'Quiero invertir', muestra el texto informativo de condiciones y abre el diálogo de aportación", async () => {
     const user = userEvent.setup();
     renderRealEstateDetail();
 
@@ -352,14 +366,12 @@ describe("RealEstateDetail - Contenido del detalle inmobiliario e inversión", (
 
     await user.click(investButton);
 
-    expect(alertSpy).toHaveBeenCalledExactlyOnceWith(
-      "Funcionalidad de inversión disponible en futuras iteraciones.",
-    );
-    alertSpy.mockRestore();
+    const dialog = await screen.findByRole("dialog", { name: "Comprometer aportación" });
+    expect(within(dialog).getByText("Rehabilitación Residencial Eixample")).toBeInTheDocument();
+    expect(await within(dialog).findByText("250,00 €")).toBeInTheDocument();
   });
 
-  it("deshabilita el botón 'Quiero invertir' cuando se ha alcanzado o superado el capital objetivo aunque el plazo siga abierto", async () => {
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+  it("indica 'Financiación completada' y deshabilita 'Quiero invertir' cuando se ha alcanzado el capital objetivo aunque el plazo siga abierto", async () => {
     const user = userEvent.setup();
     opportunityState.realEstateOpportunity = buildRealEstateOpportunity({
       target_amount_cents: 100_000_00,
@@ -368,13 +380,13 @@ describe("RealEstateDetail - Contenido del detalle inmobiliario e inversión", (
 
     renderRealEstateDetail();
 
-    expect(screen.getByText("En financiación")).toBeInTheDocument();
+    expect(screen.getByText("Financiación completada")).toBeInTheDocument();
+    expect(screen.queryByText("En financiación")).not.toBeInTheDocument();
     const investButton = screen.getByRole("button", { name: "Quiero invertir" });
     expect(investButton).toBeDisabled();
 
     await user.click(investButton);
-    expect(alertSpy).not.toHaveBeenCalled();
-    alertSpy.mockRestore();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("indica 'Plazo finalizado', deshabilita 'Quiero invertir' cuando vence el deadline y limita la barra al 100 %", () => {

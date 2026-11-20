@@ -1,5 +1,7 @@
 import { create } from "zustand";
-import { fintechGet, ApiError, RequestStatus } from "../service/api";
+import { fintechGet, fintechPost, ApiError, RequestStatus } from "../service/api";
+import { INSUFFICIENT_FUNDS_MESSAGE } from "../pages/opportunities/dialogs/contributionAmount";
+import { useWalletStore } from "./useWalletStore";
 
 export type OpportunityType = "real_estate" | "equity";
 
@@ -53,11 +55,46 @@ export interface RealEstate {
 }
 
 export interface RealEstateOpportunityGetResponse extends Opportunity {
-  minimum_contribution_cents: number;
+  // null: l'oportunitat no té aportació mínima (backend: OpportunityDetailRead).
+  minimum_contribution_cents: number | null;
   promoter: Promoter;
   real_estate: RealEstate;
-  server_time: string; 
+  server_time: string;
 }
+
+// Resposta de POST /api/opportunities/{id}/commitments (backend: CommitmentResultRead).
+export interface CommitmentResult {
+  commitment: { id: number; opportunity_id: number; amount_cents: number; created_at: string };
+  opportunity: { id: number; target_amount_cents: number; committed_cents: number };
+  wallet: unknown;
+}
+
+// Què ha passat en confirmar, perquè el diàleg sàpiga quines accions oferir.
+export type CommitmentErrorKind = "insufficient_funds" | "not_accepted" | "unexpected";
+
+export const COMMITMENT_ERRORS: Record<CommitmentErrorKind, string> = {
+  insufficient_funds: INSUFFICIENT_FUNDS_MESSAGE,
+  not_accepted: "Esta oportunidad ya no admite esta aportación.",
+  unexpected: "No se ha podido comprometer la aportación. Inténtalo de nuevo.",
+};
+
+export interface CommitmentOutcome {
+  amount_cents: number;
+  // Saldo disponible després de l'aportació; null si la resposta no el porta en un format vàlid.
+  available_cents: number | null;
+}
+
+// 409 «Insufficient funds»: el saldo ha canviat des de la validació del diàleg.
+// 404, 409 i 422: l'oportunitat ja no està en finançament, no té prou pendent o el mínim ha canviat.
+const toCommitmentError = (error: unknown): CommitmentErrorKind => {
+  if (!(error instanceof ApiError)) return "unexpected";
+  if (error.status === 409 && error.message === "Insufficient funds") return "insufficient_funds";
+  if ([404, 409, 422].includes(error.status)) return "not_accepted";
+  return "unexpected";
+};
+
+const isCents = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 
 const toErrorMessage = (error: unknown) => {
     if (error instanceof ApiError) return `${error.message} (HTTP ${error.status})`;
@@ -78,9 +115,15 @@ interface OpportunityState {
   detailDetails: string;
   realEstateOpportunity: RealEstateOpportunityGetResponse | null;
   fetchRealEstateOpportunity: (id: number) => Promise<void>;
+  commitStatus: "idle" | RequestStatus;
+  commitError: CommitmentErrorKind | null;
+  commitDetails: string;
+  // Compromet `amountCents` del saldo disponible en l'oportunitat. Mai llança: retorna null si falla.
+  commitContribution: (opportunityId: number, amountCents: number) => Promise<CommitmentOutcome | null>;
+  resetCommitment: () => void;
 }
 
-export const useOpportunityStore = create<OpportunityState>((set) => ({
+export const useOpportunityStore = create<OpportunityState>((set, get) => ({
     status: "loading",
     details: "",
     opportunities: [],
@@ -117,4 +160,42 @@ export const useOpportunityStore = create<OpportunityState>((set) => ({
             set({ detailStatus: "error", detailDetails: toErrorMessage(error), realEstateOpportunity: null });
         }
     },
+    commitStatus: "idle",
+    commitError: null,
+    commitDetails: "",
+    commitContribution: async (opportunityId, amountCents) => {
+        // Evita comprometre dues vegades amb un doble clic a «Confirmar aportación».
+        if (get().commitStatus === "loading") return null;
+        set({ commitStatus: "loading", commitError: null, commitDetails: "" });
+        try {
+            const data = await fintechPost<CommitmentResult>(
+                `/opportunities/${opportunityId}/commitments`,
+                { amount_cents: amountCents },
+            );
+            const funding = data?.opportunity;
+            const current = get().realEstateOpportunity;
+            if (current?.id === opportunityId && isCents(funding?.committed_cents) && isCents(funding?.target_amount_cents)) {
+                // El detall mostra a l'instant el capital compromès i el percentatge nous.
+                set({
+                    realEstateOpportunity: {
+                        ...current,
+                        committed_cents: funding.committed_cents,
+                        target_amount_cents: funding.target_amount_cents,
+                    },
+                });
+            } else if (current?.id === opportunityId) {
+                // Resposta inesperada: l'aportació s'ha fet, tornem a llegir el detall.
+                void get().fetchRealEstateOpportunity(opportunityId);
+            }
+            const balance = useWalletStore.getState().applyBalance(data?.wallet);
+            set({ commitStatus: "success", commitError: null, commitDetails: "" });
+            return { amount_cents: amountCents, available_cents: balance?.available_cents ?? null };
+        } catch (error: unknown) {
+            // Un error no canvia ni el saldo ni el capital compromès que es mostren.
+            const kind = toCommitmentError(error);
+            set({ commitStatus: "error", commitError: kind, commitDetails: COMMITMENT_ERRORS[kind] });
+            return null;
+        }
+    },
+    resetCommitment: () => set({ commitStatus: "idle", commitError: null, commitDetails: "" }),
 }));
