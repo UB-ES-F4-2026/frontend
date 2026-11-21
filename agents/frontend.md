@@ -63,13 +63,14 @@ Des de `frontend`, amb Node:
 
 ```bash
 npm ci
+npm run lint
+npm run typecheck
 npm test
 npm run build
-npx tsc -p tests/tsconfig.json
 ```
 
 Sense Node, des de `../backend`: `docker compose build frontend` i `docker compose run --rm --no-deps frontend npm test`.
 
 Comprovació manual amb tot l'entorn: des de `../backend`, `docker compose up --build --watch` i obre `http://localhost:5173` a amplada mòbil i d'escriptori.
 
-Fet vol dir: les quatre ordres acaben sense errors, cada criteri de la issue té test o comprovació descrita, i la pantalla funciona a mòbil i escriptori amb els estats de càrrega, error i buit visibles.
+Fet vol dir: les ordres acaben sense errors, cada criteri de la issue té test o comprovació descrita, i la pantalla funciona a mòbil i escriptori amb els estats de càrrega, error i buit visibles.
