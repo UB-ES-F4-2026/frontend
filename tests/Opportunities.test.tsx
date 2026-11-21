@@ -8,7 +8,7 @@ import Opportunities from "../src/pages/opportunities/Opportunities";
 const state = vi.hoisted(() => ({
   status: "idle",
   details: "",
-  opportunities: [] as any[],
+  opportunities: [] as ReturnType<typeof buildOpportunity>[],
   fetchOpportunities: vi.fn(),
 }));
 

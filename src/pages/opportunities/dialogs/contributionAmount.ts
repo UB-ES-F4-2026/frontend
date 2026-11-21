@@ -90,7 +90,9 @@ export const formatAmountInput = (
   }
 
   const hasDecimal = cleaned.includes(",");
-  let [integer, fraction = ""] = cleaned.split(",");
+  const parts = cleaned.split(",");
+  let integer = parts[0];
+  const fraction = parts[1] ?? "";
   if (hasDecimal && integer === "") {
     integer = "0";
     if (significantBeforeCaret > 0) significantBeforeCaret++;

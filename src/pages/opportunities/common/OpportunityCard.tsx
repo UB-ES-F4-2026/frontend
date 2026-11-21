@@ -1,5 +1,5 @@
-import { Card, MenuItem } from "@heroui/react";
-import { Opportunity, OpportunityType } from "../../../store/useOpportunityStore";
+import { Card } from "@heroui/react";
+import { Opportunity } from "../../../store/useOpportunityStore";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useState } from "react";
