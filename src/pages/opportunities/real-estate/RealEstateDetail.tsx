@@ -6,7 +6,7 @@ import {
   type RealEstateOpportunityGetResponse,
 } from "../../../store/useOpportunityStore";
 import RealEstateSkeleton from "./RealEstateSkeleton";
-import Icon, { ICONS } from "../common/OpportunityIcon";
+import Icon from "../common/OpportunityIcon";
 import Gallery, { GalleryImage } from "../common/OpportunityGallery";
 import Section from "../common/OpportunitySection";
 import Fact from "../common/OpportunityFact";
@@ -56,14 +56,6 @@ const INTENDED_USE_MAPPING: Record<string, string> = {
   rental: "Alquiler",
   sale: "Venta",
   own_use: "Uso propio"
-};
-
-const ASSET_TYPE_MAPPING: Record<string, string> = {
-  residential: "Residencial",
-  commercial: "Comercial",
-  industrial: "Industrial",
-  land: "Suelo",
-  mixed: "Mixto"
 };
 
 const formatCents = (cents: number) => eur.format(cents / 100);

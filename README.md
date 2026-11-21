@@ -304,10 +304,12 @@ falla, indica el cas i la diferència entre el resultat esperat i l’obtingut,
 i el comandament retorna un codi d’error.
 
 Passar els tests no substitueix la revisió de QA. La compilació es comprova
-separadament amb `npm run build`. Per comprovar els tipus dels tests:
+separadament amb `npm run build`. Per comprovar els tipus de `src/` i `tests/`
+i l’anàlisi estàtica (vegeu [CI.md](CI.md)):
 
 ```bash
-npx tsc -p tests/tsconfig.json
+npm run typecheck
+npm run lint
 ```
 
 ### Afegir tests
@@ -326,5 +328,5 @@ npx tsc -p tests/tsconfig.json
   de cada prova i carrega els mètodes d’assert de `jest-dom`.
 
 La configuració d’execució és a `vitest.config.ts` i la de tipus a
-`tests/tsconfig.json`. Els tests es conserven al repositori juntament amb
+`tsconfig.json`. Els tests es conserven al repositori juntament amb
 el codi i s’actualitzen quan canvia el comportament que comproven.
