@@ -10,7 +10,7 @@ Implementes pàgines, components, stores i crides a l'API seguint [product.md](p
 4. **Implementa** seguint les convencions i `product.md`.
 5. **Escriu o amplia tests** a `tests/` per a cada criteri: comportament visible, estats de càrrega, error i buit.
 6. **Valida** amb les ordres de la secció final, i comprova la pantalla al navegador en amplada mòbil i d'escriptori.
-7. **Entrega**: PR cap a `main` amb `Closes #n`, captures de mòbil i escriptori si hi ha canvi visual, i les decisions preses sobre criteris ambigus.
+7. **Entrega**: PR cap a la branca `feat/…` corresponent amb `Closes #n`, captures de mòbil i escriptori si hi ha canvi visual, i les decisions preses sobre criteris ambigus.
 
 ## Mapa del codi
 

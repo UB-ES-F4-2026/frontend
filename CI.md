@@ -2,6 +2,20 @@
 
 GitHub Actions se ejecuta en cada push y en cada PR a `main`. Construye la imagen Docker y, dentro de ella, ejecuta ESLint, la comprobación de tipos, la compilación con Vite y los tests. Si cualquiera falla, falla «Frontend required checks» y no se puede fusionar a `main`. Los resultados se ven en la pestaña Actions.
 
+## Qué se ejecuta en cada fase
+
+| Cuándo | Qué se ejecuta | ¿Impide fusionar? |
+|---|---|---|
+| Push a cualquier rama | ESLint, tipos, build y tests (`ci.yml`) | No: solo informa |
+| Push a `release/*` o `hotfix/*` | Además, publica la imagen; desde `release/*` la despliega en staging | — |
+| PR hacia `dev` o `release/*` | E2E de Playwright (`e2e-playwright.yml`) | No: la PR sale en rojo, pero `dev` y `release/*` no tienen checks obligatorios |
+| PR hacia `main` | ESLint, tipos, build, tests, origen de la PR y E2E | Sí, «Frontend required checks» (todo menos los E2E). Los E2E salen en rojo si fallan, pero no son obligatorios |
+
+- Los E2E usan el backend de la misma rama que el destino de la PR (`dev`, `release/x.y` o `main`). Si el backend no tiene esa rama, fallan con un mensaje que lo indica.
+- A `main` solo se llega desde `release/*` o `hotfix/*`. Una PR de `dev` directamente a `main` falla: hay que crear `release/x.y` desde `dev`.
+- Un hotfix sale de `main` y, después de fusionarlo, se lleva también a `dev` con una PR desde `hotfix/*`. Si no, la siguiente release lo desharía.
+- Proteger `dev` y `release/*` con checks obligatorios requiere permisos de administrador del repositorio, que el equipo no tiene.
+
 ## En local con Node
 
 Desde `frontend`:
