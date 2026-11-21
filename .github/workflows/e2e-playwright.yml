@@ -8,6 +8,8 @@ on:
   pull_request:
     branches:
       - dev
+      - 'release/**'
+      - main
 
 permissions:
   contents: read
@@ -26,13 +28,23 @@ jobs:
         with:
           path: frontend
 
-      # 2. Checkout del código del backend
+      # 2. Checkout del código del backend, de la misma rama que el destino de la PR
+      #    (dev, release/x.y o main), para probar las dos partes de la misma versión.
+      - name: Check Backend Branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git ls-remote --exit-code --heads https://github.com/UB-ES-F4-2026/backend.git "refs/heads/$BASE_REF" >/dev/null || {
+            echo "::error::El backend no tiene la rama $BASE_REF. Créala desde la rama equivalente antes de abrir esta PR."
+            exit 1
+          }
+
       - name: Checkout Backend
         uses: actions/checkout@v4
         with:
           repository: UB-ES-F4-2026/backend
           path: backend
-          ref: dev
+          ref: ${{ github.base_ref }}
 
       # 3. Preparar entorno para Docker Compose
       - name: Setup Environment
