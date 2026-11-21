@@ -36,14 +36,15 @@ docker image rm frontend-ci
 
 ## TypeScript 7 y ESLint
 
-TypeScript 7.0 aún no tiene API de JavaScript, y `typescript-eslint` la necesita para leer el código. Por eso `package.json` instala las dos versiones, como recomienda el [anuncio de TypeScript 7.0](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/):
+TypeScript 7.0 aún no tiene API de JavaScript, y `typescript-eslint` la necesita para leer el código. Por eso `package.json` instala las dos versiones con alias de npm, como recomienda el [anuncio de TypeScript 7.0](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/):
 
 ```json
-"@typescript/native": "npm:typescript@^7.0.2",
-"typescript": "npm:@typescript/typescript6@^6.0.2"
+"typescript": "npm:@typescript/typescript6@^6.0.2",
+"typescript7": "npm:typescript@^7.0.2"
 ```
 
-- `tsc` (y `npm run typecheck`) es TypeScript 7.
+- `npm run typecheck` ejecuta TypeScript 7 (`node_modules/typescript7/bin/tsc`). Usa este script y no `npx tsc`, que puede acabar ejecutando TypeScript 6.
 - ESLint importa `typescript`, que es la API de TypeScript 6. Solo la usa para leer la sintaxis: no hay reglas que comprueben tipos.
+- El anuncio llama al alias `@typescript/native`, pero con ese nombre `npm ci` falla en npm 10 (Node 22, la versión de la imagen Docker). Por eso se llama `typescript7`.
 
 Cuando `typescript-eslint` admita TypeScript 7 ([typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940)), se quitan los alias y queda `"typescript": "^7.x"`.
