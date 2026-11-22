@@ -81,6 +81,45 @@ describe("registre de useAuthStore aïllat de l’API", () => {
     expect(useAuthStore.getState()).toMatchObject({ registrationStatus: "success", registrationDetails: "" });
   });
 
+  it("envia l'entitat promotora a la mateixa petició, sense espais i amb la ubicació buida com a null", async () => {
+    post.mockResolvedValue(createdUser);
+    await useAuthStore.getState().register({
+      ...registrationData,
+      promoting_entity: { legal_name: "  Promociones Ejemplo SL  ", founding_year: 2015, location: "   " },
+    });
+    expect(post).toHaveBeenCalledExactlyOnceWith("/auth/register", {
+      ...registrationData,
+      promoting_entity: { legal_name: "Promociones Ejemplo SL", founding_year: 2015, location: null },
+    });
+  });
+
+  it("un registre normal no inclou el camp promoting_entity", async () => {
+    post.mockResolvedValue(createdUser);
+    await useAuthStore.getState().register(registrationData);
+    expect(post.mock.calls[0][1]).not.toHaveProperty("promoting_entity");
+  });
+
+  it.each([
+    [{ detail: [{ loc: ["body", "promoting_entity", "legal_name"], msg: "x" }] }, "Revisa los siguientes campos: razón social."],
+    [{ detail: [{ loc: ["body", "promoting_entity", "founding_year"] }, { loc: ["body", "promoting_entity", "location"] }] },
+      "Revisa los siguientes campos: año de fundación, ubicación."],
+    [{ detail: [{ loc: ["body", "phone"] }, { loc: ["body", "promoting_entity", "legal_name"] }] }, "Revisa los siguientes campos: teléfono, razón social."],
+    [{ detail: [{ loc: ["body", "promoting_entity", "__proto__"] }, { loc: ["body", "promoting_entity"] }] }, "Revisa los datos del formulario."],
+  ])("tradueix els errors 422 dels camps de l'entitat: %j", async (details, expected) => {
+    post.mockRejectedValue(new ApiError("Invalid", 422, details));
+    await useAuthStore.getState().register(registrationData);
+    expect(useAuthStore.getState().registrationDetails).toBe(expected);
+  });
+
+  it.each([
+    ["Email already registered", "Ya existe una cuenta con este correo electrónico."],
+    ["Registration conflict", "No se ha podido crear la cuenta."],
+  ])("distingeix el 409 «%s»", async (detail, expected) => {
+    post.mockRejectedValue(new ApiError("Conflict", 409, { detail }));
+    await useAuthStore.getState().register(registrationData);
+    expect(useAuthStore.getState().registrationDetails).toContain(expected);
+  });
+
   it("neteja l’estat del registre sense modificar el del login", () => {
     useAuthStore.setState({ registrationStatus: "error", registrationDetails: "Error anterior", status: "error", details: "Error de login" });
     useAuthStore.getState().resetRegistration();
