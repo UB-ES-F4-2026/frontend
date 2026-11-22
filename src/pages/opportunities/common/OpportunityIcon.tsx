@@ -12,6 +12,9 @@ export const ICONS = {
     "M8 3H3v5m0-5 6 6m7-6h5v5m0-5-6 6M3 16v5h5m-5 0 6-6m12 1v5h-5m5 0-6-6",
   home: "m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8",
   pin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0ZM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6",
+  briefcase: "M3 7h18v13H3ZM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2M3 13h18",
+  valuation: "M3 3v18h18M7 15l4-4 3 3 5-6",
+  stake: "M21 15.9A10 10 0 1 1 8 2.8M22 12A10 10 0 0 0 12 2v10Z",
   previous: "m15 18-6-6 6-6",
   next: "m9 18 6-6-6-6",
 } as const;
