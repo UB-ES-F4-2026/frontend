@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, fintechGet, fintechPost } from "../src/service/api";
 import {
   useOpportunityStore,
+  type BusinessOpportunityGetResponse,
   type CommitmentResult,
   type RealEstateOpportunityGetResponse,
 } from "../src/store/useOpportunityStore";
@@ -152,5 +153,53 @@ describe("useOpportunityStore: comprometre una aportació", () => {
     await useOpportunityStore.getState().commitContribution(7, 100_00);
     useOpportunityStore.getState().resetCommitment();
     expect(useOpportunityStore.getState()).toMatchObject({ commitStatus: "idle", commitError: null, commitDetails: "" });
+  });
+});
+
+describe("useOpportunityStore: detall empresarial", () => {
+  // Només els camps que el store tracta; la resta no hi intervé.
+  const business = {
+    id: 44,
+    type: "equity",
+    title: "Expansión de BioPack",
+  } as BusinessOpportunityGetResponse;
+
+  it("passa per «loading» i desa el detall quan la consulta va bé", async () => {
+    let resolve!: (value: unknown) => void;
+    get.mockReturnValue(new Promise((done) => { resolve = done; }));
+    const pending = useOpportunityStore.getState().fetchBusinessOpportunity(44);
+    expect(useOpportunityStore.getState()).toMatchObject({
+      detailStatus: "loading",
+      detailId: 44,
+      businessOpportunity: null,
+    });
+
+    resolve(business);
+    await pending;
+    expect(get).toHaveBeenCalledWith("/opportunities/44", expect.anything());
+    expect(useOpportunityStore.getState()).toMatchObject({ detailStatus: "success", businessOpportunity: business });
+  });
+
+  it("desa el missatge d'error si la consulta falla", async () => {
+    get.mockRejectedValue(new ApiError("Oportunidad no disponible", 404, null));
+    await useOpportunityStore.getState().fetchBusinessOpportunity(44);
+    expect(useOpportunityStore.getState()).toMatchObject({
+      detailStatus: "error",
+      detailDetails: "Oportunidad no disponible (HTTP 404)",
+      businessOpportunity: null,
+    });
+  });
+
+  it("descarta la resposta d'una consulta substituïda per una altra", async () => {
+    let resolveFirst!: (value: unknown) => void;
+    get.mockReturnValueOnce(new Promise((done) => { resolveFirst = done; }));
+    get.mockResolvedValueOnce({ ...business, id: 45 });
+
+    const first = useOpportunityStore.getState().fetchBusinessOpportunity(44);
+    await useOpportunityStore.getState().fetchBusinessOpportunity(45);
+    resolveFirst(business);
+    await first;
+
+    expect(useOpportunityStore.getState()).toMatchObject({ detailId: 45, businessOpportunity: { id: 45 } });
   });
 });
