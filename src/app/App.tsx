@@ -10,6 +10,7 @@ import Opportunities from "../pages/opportunities/Opportunities";
 import MyWalletPage from "../pages/wallet/MyWalletPage";
 import RequireAuth from "../components/RequireAuth";
 import RealEstateDetail from "../pages/opportunities/real-estate/RealEstateDetail";
+import BusinessDetail from "../pages/opportunities/business/BusinessDetail";
 
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/opportunities" element={<Opportunities />} />
           <Route path="/my-balance" element={<RequireAuth><MyWalletPage /></RequireAuth>} />
           <Route path="/opportunities/real-estate/:id" element={<RealEstateDetail />} />
+          <Route path="/opportunities/equity/:id" element={<BusinessDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
