@@ -242,3 +242,71 @@ describe("useOpportunityStore: llistat del catàleg", () => {
     });
   });
 });
+
+describe("useOpportunityStore: crear una oportunitat", () => {
+  const metadata = {
+    type: "real_estate" as const,
+    title: "Local comercial en Sabadell",
+    description: "Adquisición y reforma de un local.",
+    location: { municipality: "Sabadell", province: "Barcelona", country: "España" },
+    target_amount_cents: 15_000_000,
+    minimum_contribution_cents: 10_000,
+    deadline: "2099-01-31T22:59:00.000Z",
+    initial_contribution_cents: 500_000,
+  };
+  const images = [
+    new File(["a"], "portada.png", { type: "image/png" }),
+    new File(["b"], "segona.jpg", { type: "image/jpeg" }),
+  ];
+
+  it("envia les dades com a «metadata» i les imatges en ordre, en un formulari multipart", async () => {
+    post.mockResolvedValue({ id: 99 });
+
+    const created = await useOpportunityStore.getState().createOpportunity(metadata, images);
+
+    expect(created).toEqual({ id: 99 });
+    const [url, body] = post.mock.calls[0];
+    expect(url).toBe("/opportunities");
+    expect(body).toBeInstanceOf(FormData);
+    expect(JSON.parse((body as FormData).get("metadata") as string)).toEqual(metadata);
+    expect((body as FormData).getAll("images").map((file) => (file as File).name)).toEqual(["portada.png", "segona.jpg"]);
+    expect(useOpportunityStore.getState()).toMatchObject({ createStatus: "success", createDetails: "" });
+  });
+
+  it("no envia una segona petició mentre la primera està en curs", async () => {
+    let resolve!: (value: unknown) => void;
+    post.mockReturnValue(new Promise((done) => { resolve = done; }));
+
+    const first = useOpportunityStore.getState().createOpportunity(metadata, images);
+    expect(await useOpportunityStore.getState().createOpportunity(metadata, images)).toBeNull();
+    resolve({ id: 99 });
+    await first;
+
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [new ApiError("Insufficient available balance", 409, null), "No tienes saldo suficiente para esta aportación."],
+    [new ApiError("Initial contribution could not be reserved", 409, null), "No se ha podido reservar tu aportación inicial. Inténtalo de nuevo."],
+    [new ApiError("A promoting entity is required to create opportunities", 403, null), "Necesitas una entidad promotora para crear oportunidades."],
+    [new ApiError("Image exceeds the maximum size", 422, null), "Alguna imagen no es válida. Usa imágenes JPG, PNG o WebP de hasta 5 MB."],
+    [new ApiError("HTTP Error 422", 422, { detail: [] }), "Algún dato de la oportunidad no es válido. Revísalo y vuelve a enviarla."],
+    [new ApiError("Not authenticated", 401, null), ""],
+    [new ApiError("Internal Server Error", 500, null), "No se ha podido enviar la oportunidad. Inténtalo de nuevo."],
+    [new TypeError("Failed to fetch"), "No se ha podido enviar la oportunidad. Inténtalo de nuevo."],
+  ])("tradueix l'error %s a un missatge per a l'usuari", async (error, message) => {
+    post.mockRejectedValue(error);
+
+    expect(await useOpportunityStore.getState().createOpportunity(metadata, images)).toBeNull();
+    expect(useOpportunityStore.getState()).toMatchObject({ createStatus: "error", createDetails: message });
+  });
+
+  it("resetCreation deixa l'enviament com al principi", async () => {
+    post.mockRejectedValue(new ApiError("Internal Server Error", 500, null));
+    await useOpportunityStore.getState().createOpportunity(metadata, images);
+
+    useOpportunityStore.getState().resetCreation();
+
+    expect(useOpportunityStore.getState()).toMatchObject({ createStatus: "idle", createDetails: "" });
+  });
+});
