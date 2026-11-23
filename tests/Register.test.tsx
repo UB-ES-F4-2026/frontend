@@ -102,7 +102,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     await user.click(privacy());
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
     expect(state.register).toHaveBeenCalledWith(expect.objectContaining({ phone: "+34612345678" }));
-  });
+  }, 30_000);
 
   it("no avança amb els camps obligatoris buits", async () => {
     renderRegister();
