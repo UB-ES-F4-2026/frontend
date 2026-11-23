@@ -35,6 +35,13 @@ vi.mock("../src/pages/wallet/WalletWithdrawalPage", () => ({
   default: () => <h1>Pàgina simulada: retirada</h1>,
 }));
 
+vi.mock("../src/pages/my-opportunities/MyOpportunitiesPage", () => ({
+  default: () => <h1>Pàgina simulada: mis oportunidades</h1>,
+}));
+vi.mock("../src/pages/my-opportunities/create/CreateOpportunityPage", () => ({
+  default: ({ type }: { type: string }) => <h1>Pàgina simulada: crear {type}</h1>,
+}));
+
 vi.mock("../src/pages/legal/TermsOfUse", () => ({
   default: () => <h1>Pàgina simulada: condicions</h1>,
 }));
@@ -178,5 +185,36 @@ describe("ruta privada /my-balance/withdraw (US04.3, criteri 8)", () => {
     expect(screen.queryByRole("heading", { name: "Pàgina simulada: retirada" })).not.toBeInTheDocument();
     act(() => useAuthStore.setState({ active_account: account, sessionChecked: true }));
     expect(await screen.findByRole("heading", { name: "Pàgina simulada: retirada" })).toBeInTheDocument();
+  });
+});
+
+describe("rutes de l'entitat promotora (US06.1)", () => {
+  const promoter = { id: 2, email: "promotora@example.com", created_at: "2026-10-27T10:00:00Z", is_promoter: true };
+  const investor = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z", is_promoter: false };
+
+  it.each([
+    ["/my-opportunities", "Pàgina simulada: mis oportunidades"],
+    ["/my-opportunities/new/real-estate", "Pàgina simulada: crear real_estate"],
+    ["/my-opportunities/new/equity", "Pàgina simulada: crear equity"],
+  ])("mostra %s a l'entitat promotora", (path, heading) => {
+    useAuthStore.setState({ active_account: promoter, sessionChecked: true });
+    renderApp(path);
+    expect(within(screen.getByRole("main")).getByRole("heading", { name: heading })).toBeInTheDocument();
+  });
+
+  it.each(["/my-opportunities", "/my-opportunities/new/real-estate", "/my-opportunities/new/equity"])(
+    "porta a l'inici un compte sense entitat promotora que obre %s",
+    async (path) => {
+      useAuthStore.setState({ active_account: investor, sessionChecked: true });
+      renderApp(path);
+      expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
+      expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
+    },
+  );
+
+  it("porta el visitant al login", async () => {
+    useAuthStore.setState({ sessionChecked: true });
+    renderApp("/my-opportunities/new/real-estate");
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
   });
 });

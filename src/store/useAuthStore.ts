@@ -29,6 +29,8 @@ export interface RegisteredUser {
   id: number;
   email: string;
   created_at: string;
+  // El backend (UserRead) sempre l'envia; absent es tracta com un compte sense entitat promotora.
+  is_promoter?: boolean;
 }
 
 // El token viu a la cookie HttpOnly; el store només conserva l’usuari.
