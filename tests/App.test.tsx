@@ -31,6 +31,9 @@ vi.mock("../src/pages/wallet/MyWalletPage", () => ({
 vi.mock("../src/pages/wallet/WalletDepositPage", () => ({
   default: () => <h1>Pàgina simulada: ingrés</h1>,
 }));
+vi.mock("../src/pages/wallet/WalletWithdrawalPage", () => ({
+  default: () => <h1>Pàgina simulada: retirada</h1>,
+}));
 
 vi.mock("../src/pages/legal/TermsOfUse", () => ({
   default: () => <h1>Pàgina simulada: condicions</h1>,
@@ -149,5 +152,31 @@ describe("ruta privada /my-balance/deposit (US04.2, criteri 6)", () => {
     expect(screen.queryByRole("heading", { name: "Pàgina simulada: ingrés" })).not.toBeInTheDocument();
     act(() => useAuthStore.setState({ active_account: account, sessionChecked: true }));
     expect(await screen.findByRole("heading", { name: "Pàgina simulada: ingrés" })).toBeInTheDocument();
+  });
+});
+
+describe("ruta privada /my-balance/withdraw (US04.3, criteri 8)", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it("mostra «Retirar fondos» al client autenticat", () => {
+    useAuthStore.setState({ active_account: account, sessionChecked: true });
+    renderApp("/my-balance/withdraw");
+    expect(within(screen.getByRole("main")).getByRole("heading", { name: "Pàgina simulada: retirada" })).toBeInTheDocument();
+  });
+
+  it("porta el visitant al login sense mostrar la pàgina", async () => {
+    useAuthStore.setState({ sessionChecked: true });
+    renderApp("/my-balance/withdraw");
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
+    expect(screen.queryByRole("heading", { name: "Pàgina simulada: retirada" })).not.toBeInTheDocument();
+  });
+
+  it("en recarregar espera la sessió recuperada en lloc d’expulsar l’usuari", async () => {
+    renderApp("/my-balance/withdraw");
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/my-balance\/withdraw$/);
+    expect(screen.queryByRole("heading", { name: "Pàgina simulada: retirada" })).not.toBeInTheDocument();
+    act(() => useAuthStore.setState({ active_account: account, sessionChecked: true }));
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: retirada" })).toBeInTheDocument();
   });
 });

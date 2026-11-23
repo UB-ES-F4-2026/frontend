@@ -82,12 +82,37 @@ describe("Mi saldo", () => {
     expect(screen.queryByText("0,00 €")).not.toBeInTheDocument();
   });
 
-  it("enllaça a «Ingresar fondos» i no ofereix invertir ni retirar", async () => {
+  it("enllaça a «Ingresar fondos» i a «Retirar fondos», i no ofereix invertir", async () => {
     get.mockResolvedValue(wallet(100));
     renderPage();
     await screen.findByText("1,00 €");
     expect(screen.getByRole("link", { name: "Ingresar fondos" })).toHaveAttribute("href", "/my-balance/deposit");
+    expect(screen.getByRole("link", { name: "Retirar fondos" })).toHaveAttribute("href", "/my-balance/withdraw");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("amb saldo zero desactiva «Retirar fondos» i n'explica el motiu", async () => {
+    get.mockResolvedValue(wallet(0));
+    renderPage();
+    await screen.findByText("Tu saldo disponible es de 0,00 €");
+    expect(screen.getByRole("button", { name: "Retirar fondos" })).toBeDisabled();
+    expect(screen.getByText("No tienes saldo disponible para retirar.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Retirar fondos" })).not.toBeInTheDocument();
+  });
+
+  it("si no pot consultar el saldo, «Retirar fondos» queda desactivat sense dir que no n'hi hagi", async () => {
+    get.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    renderPage();
+    await screen.findByRole("alert");
+    expect(screen.getByRole("button", { name: "Retirar fondos" })).toBeDisabled();
+    expect(screen.queryByText("No tienes saldo disponible para retirar.")).not.toBeInTheDocument();
+  });
+
+  it("sense cap retirada recent no mostra «Retirada realizada»", async () => {
+    get.mockResolvedValue(wallet(100));
+    renderPage();
+    await screen.findByText("1,00 €");
+    expect(screen.queryByText("Retirada realizada")).not.toBeInTheDocument();
   });
 
   it("sense cap ingrés recent no mostra «Ingreso realizado»", async () => {
