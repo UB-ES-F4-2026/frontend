@@ -1,5 +1,5 @@
-import type { FundingStatus } from "../../store/useOpportunityStore";
-import { FUNDING_STATUS_DOTS, FUNDING_STATUS_LABELS } from "./myOpportunitiesFormat";
+import type { FundingStatus } from "../../../store/useOpportunityStore";
+import { FUNDING_STATUS_DOTS, FUNDING_STATUS_LABELS } from "./opportunityStatus";
 
 export default function FundingStatusChip({ status }: { status: FundingStatus }) {
   return (

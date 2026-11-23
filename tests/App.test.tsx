@@ -29,6 +29,9 @@ vi.mock("../src/pages/opportunities/Opportunities", () => ({
 vi.mock("../src/pages/wallet/MyWalletPage", () => ({
   default: () => <h1>Pàgina simulada: saldo</h1>,
 }));
+vi.mock("../src/pages/investments/MyInvestmentsPage", () => ({
+  default: () => <h1>Pàgina simulada: inversions</h1>,
+}));
 vi.mock("../src/pages/wallet/WalletDepositPage", () => ({
   default: () => <h1>Pàgina simulada: ingrés</h1>,
 }));
@@ -186,6 +189,24 @@ describe("ruta privada /my-balance/withdraw (US04.3, criteri 8)", () => {
     expect(screen.queryByRole("heading", { name: "Pàgina simulada: retirada" })).not.toBeInTheDocument();
     act(() => useAuthStore.setState({ active_account: account, sessionChecked: true }));
     expect(await screen.findByRole("heading", { name: "Pàgina simulada: retirada" })).toBeInTheDocument();
+  });
+});
+
+describe("ruta privada /my-investments (US05.1)", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it("mostra «Mis inversiones» al client autenticat, tingui o no entitat promotora", () => {
+    useAuthStore.setState({ active_account: account, sessionChecked: true });
+    renderApp("/my-investments");
+    expect(within(screen.getByRole("main")).getByRole("heading", { name: "Pàgina simulada: inversions" })).toBeInTheDocument();
+  });
+
+  it("porta el visitant al login sense mostrar la pàgina", async () => {
+    useAuthStore.setState({ sessionChecked: true });
+    renderApp("/my-investments");
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
+    expect(screen.queryByRole("heading", { name: "Pàgina simulada: inversions" })).not.toBeInTheDocument();
   });
 });
 
