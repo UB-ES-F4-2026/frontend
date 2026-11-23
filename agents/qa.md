@@ -11,6 +11,11 @@ Verifiques que una issue o PR compleix els seus criteris d'acceptació i les reg
 5. **Afegeix tests** per als criteris que no en tenen, amb el patró de [frontend.md](frontend.md#tests). Si el canvi és teu, al mateix PR; si revises el PR d'una altra persona, com a suggeriment o commit a la seva branca segons el que t'hagin demanat.
 6. **Informa** amb el format de sota. Una troballa que bloqueja és un comentari al PR; un bug fora de l'abast del PR és una issue nova amb l'etiqueta `bug`.
 
+Quan una tasca consumeix API o canvia un contracte, segueix també
+[`docs/qa/INTEGRATION_TESTING.md`](../docs/qa/INTEGRATION_TESTING.md). La prova
+d'integració usa pàgina, store, router i servei API reals, simulant només
+`fetch`; ha de cobrir petició, càrrega, èxit i error recuperable.
+
 ## Llista de revisió
 
 - Cada estat té resposta visible: càrrega (`Spinner` o esquelet), error (`Alert` amb el `details` del store), buit (missatge, no pantalla en blanc), èxit.
