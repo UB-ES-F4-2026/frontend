@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,7 +52,7 @@ describe("Mis inversiones: integración de página, store y API", () => {
       method: "GET",
       credentials: "include",
     }));
-    expect(screen.getByText("1.000,00 €")).toBeInTheDocument();
+    expect(within(screen.getByRole("article", { name: "Piso en Girona" })).getByText("1.000,00 €")).toBeInTheDocument();
   });
 
   it("muestra un error recuperable y vuelve a consultar los compromisos al reintentar", async () => {
