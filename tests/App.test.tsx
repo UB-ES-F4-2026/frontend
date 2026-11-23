@@ -1,4 +1,5 @@
 import { act, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/app/App";
@@ -203,18 +204,27 @@ describe("rutes de l'entitat promotora (US06.1)", () => {
   });
 
   it.each(["/my-opportunities", "/my-opportunities/new/real-estate", "/my-opportunities/new/equity"])(
-    "porta a l'inici un compte sense entitat promotora que obre %s",
+    "a un compte sense entitat promotora que obre %s li mostra l'avís amb «Volver al inicio» (US05.2)",
     async (path) => {
+      const user = userEvent.setup();
       useAuthStore.setState({ active_account: investor, sessionChecked: true });
       renderApp(path);
+
+      const main = within(screen.getByRole("main"));
+      expect(main.getByRole("heading", { name: "Sección solo para entidades promotoras" })).toBeInTheDocument();
+      expect(main.queryByRole("heading", { name: /Pàgina simulada: (mis oportunidades|crear)/ })).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(new RegExp(`^${path}$`));
+
+      await user.click(main.getByRole("link", { name: "Volver al inicio" }));
       expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
       expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
     },
   );
 
-  it("porta el visitant al login", async () => {
+  it.each(["/my-opportunities", "/my-opportunities/new/real-estate"])("porta el visitant que obre %s al login", async (path) => {
     useAuthStore.setState({ sessionChecked: true });
-    renderApp("/my-opportunities/new/real-estate");
+    renderApp(path);
     expect(await screen.findByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
   });
 });

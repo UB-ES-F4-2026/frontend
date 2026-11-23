@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import MyOpportunitiesPage from "../src/pages/my-opportunities/MyOpportunitiesPage";
 import CreateOpportunityPage from "../src/pages/my-opportunities/create/CreateOpportunityPage";
 import { ApiError, fintechGet, fintechPost } from "../src/service/api";
+import { useAuthStore } from "../src/store/useAuthStore";
 import { useOpportunityStore } from "../src/store/useOpportunityStore";
 import { useWalletStore } from "../src/store/useWalletStore";
 import { clickMap } from "./support/reactLeaflet";
@@ -129,9 +130,18 @@ beforeEach(() => {
   vi.resetAllMocks();
   useOpportunityStore.setState(useOpportunityStore.getInitialState(), true);
   useWalletStore.getState().reset();
+  useAuthStore.setState({
+    active_account: { id: 2, email: "promotora@example.com", created_at: "2026-10-27T10:00:00Z", is_promoter: true },
+    sessionChecked: true,
+  });
   availableCents = 800_000;
   get.mockImplementation(async (url: string) => {
     if (url === "/me/wallet") return { available_cents: availableCents, committed_cents: 0, currency: "eur" };
+    // «Mis oportunidades» encara sense cap oportunitat.
+    if (url === "/me/opportunities") {
+      return { summary: { committed_cents: 0, published_count: 0, in_funding_count: 0, pending_review_count: 0 }, opportunities: [] };
+    }
+    if (url === "/promotingentity") return [];
     throw new Error(`Petició inesperada: ${url}`);
   });
   // jsdom no crea adreces temporals per a les vistes prèvies.
