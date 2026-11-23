@@ -1,4 +1,4 @@
-import { FieldError, Input, Label, ListBox, Select, TextField } from "@heroui/react";
+import { FieldError, Input, Label, TextField } from "@heroui/react";
 import type { TypeStepProps } from "../opportunityTypes";
 import {
   ASSET_TYPE_LABELS,
@@ -10,15 +10,8 @@ import {
   type RealEstateDraft,
 } from "./realEstateDraft";
 import LocationPicker from "./LocationPicker";
+import OptionSelect from "../OptionSelect";
 import { ERROR_CLASS, FIELD_CLASS, LABEL_CLASS } from "../formStyles";
-
-type SelectField = "purpose" | "intended_use" | "asset_type";
-
-const SELECTS: { name: SelectField; label: string; options: Record<string, string> }[] = [
-  { name: "purpose", label: "Finalidad", options: PURPOSE_LABELS },
-  { name: "intended_use", label: "Uso previsto", options: INTENDED_USE_LABELS },
-  { name: "asset_type", label: "Tipo de activo", options: ASSET_TYPE_LABELS },
-];
 
 const OPTIONAL = <span className="font-normal text-muted">(opcional)</span>;
 
@@ -30,35 +23,30 @@ export default function RealEstateStep({ value, onChange, errors }: TypeStepProp
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {SELECTS.map((field) => (
-          <Select
-            key={field.name}
-            name={field.name}
-            placeholder="Selecciona"
-            validationBehavior="aria"
-            isInvalid={!!errors[field.name]}
-            isRequired
-            className="flex min-w-0 flex-col gap-1.5"
-            value={value[field.name] || null}
-            onChange={(key) => update({ [field.name]: key === null ? "" : String(key) })}
-          >
-            <Label className={LABEL_CLASS}>{field.label}</Label>
-            <Select.Trigger className={`h-10 min-h-10 ${FIELD_CLASS}`}>
-              <Select.Value className="min-w-0 truncate" />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox aria-label={field.label}>
-                {Object.entries(field.options).map(([id, label]) => (
-                  <ListBox.Item key={id} id={id} textValue={label}>
-                    {label}
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </Select.Popover>
-            <FieldError className={ERROR_CLASS}>{errors[field.name]}</FieldError>
-          </Select>
-        ))}
+        <OptionSelect
+          name="purpose"
+          label="Finalidad"
+          options={PURPOSE_LABELS}
+          value={value.purpose}
+          error={errors.purpose}
+          onChange={(purpose) => update({ purpose })}
+        />
+        <OptionSelect
+          name="intended_use"
+          label="Uso previsto"
+          options={INTENDED_USE_LABELS}
+          value={value.intended_use}
+          error={errors.intended_use}
+          onChange={(intended_use) => update({ intended_use })}
+        />
+        <OptionSelect
+          name="asset_type"
+          label="Tipo de activo"
+          options={ASSET_TYPE_LABELS}
+          value={value.asset_type}
+          error={errors.asset_type}
+          onChange={(asset_type) => update({ asset_type })}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

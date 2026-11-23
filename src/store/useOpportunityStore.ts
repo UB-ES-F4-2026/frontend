@@ -67,10 +67,10 @@ export interface RealEstateOpportunityGetResponse extends Opportunity {
 
 // Valors dels enums del backend (app/models/business_opportunity.py).
 export type BusinessSector =
-  | "fintech" | "industry" | "saas" | "health" | "biotech" | "cleantech" | "agritech"
-  | "foodtech" | "d2c" | "education" | "media" | "tourism" | "logistic" | "ai" | "other";
+  | "technology" | "industry" | "food_and_beverage" | "commerce"
+  | "health" | "energy" | "tourism_and_leisure" | "other_services";
 
-export type BusinessPhase = "pre_seed" | "seed" | "early" | "growth" | "late";
+export type BusinessPhase = "idea" | "launch" | "growth" | "consolidated";
 
 export interface Business {
   sector: BusinessSector;
@@ -169,6 +169,14 @@ export interface RealEstateCreate {
   public_longitude: number | null;
 }
 
+// Dades de l'empresa en crear l'oportunitat (backend: BusinessOpportunityCreate). La participació
+// oferta no s'envia: el backend la calcula a partir de l'objectiu i la valoració.
+export interface BusinessCreate {
+  sector: BusinessSector;
+  phase: BusinessPhase;
+  pre_investment_valuation_cents: number;
+}
+
 // Cos `metadata` de POST /api/opportunities (backend: OpportunityCreate). Les imatges van a part,
 // al mateix formulari multipart.
 export interface OpportunityCreateMetadata {
@@ -181,9 +189,9 @@ export interface OpportunityCreateMetadata {
   // ISO amb zona horària: el backend rebutja les dates sense zona.
   deadline: string;
   initial_contribution_cents: number | null;
-  // Dades pròpies de cada tipus: les del pas Inmueble o les del pas Empresa (#68).
+  // Dades pròpies de cada tipus: les del pas Inmueble o les del pas Empresa.
   real_estate?: RealEstateCreate;
-  business?: Record<string, unknown>;
+  business?: BusinessCreate;
 }
 
 export const CREATE_OPPORTUNITY_ERRORS = {

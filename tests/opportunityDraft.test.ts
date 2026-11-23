@@ -111,7 +111,7 @@ describe("buildMetadata", () => {
       "equity",
       general,
       { targetCents: 100, minimumCents: 10, deadline: "2027-01-31T22:59:00.000Z", initialCents: null },
-      { business: { sector: "technology" } },
+      { business: { sector: "technology", phase: "idea", pre_investment_valuation_cents: 1_000_000 } },
     );
     expect(metadata).toEqual({
       type: "equity",
@@ -122,7 +122,7 @@ describe("buildMetadata", () => {
       minimum_contribution_cents: 10,
       deadline: "2027-01-31T22:59:00.000Z",
       initial_contribution_cents: null,
-      business: { sector: "technology" },
+      business: { sector: "technology", phase: "idea", pre_investment_valuation_cents: 1_000_000 },
     });
   });
 });

@@ -13,6 +13,8 @@ interface FundingStepProps {
   availableCents: number | null;
   balanceFailed: boolean;
   onRetryBalance: () => void;
+  // Files pròpies del tipus que depenen de l'objectiu («Participación ofrecida»).
+  extraRows?: [string, string][];
 }
 
 const AMOUNT_FIELDS = [
@@ -20,7 +22,15 @@ const AMOUNT_FIELDS = [
   { name: "minimum", label: "Aportación mínima" },
 ] as const;
 
-export default function FundingStep({ value, errors, onChange, availableCents, balanceFailed, onRetryBalance }: FundingStepProps) {
+export default function FundingStep({
+  value,
+  errors,
+  onChange,
+  availableCents,
+  balanceFailed,
+  onRetryBalance,
+  extraRows = [],
+}: FundingStepProps) {
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -43,6 +53,18 @@ export default function FundingStep({ value, errors, onChange, availableCents, b
           </TextField>
         ))}
       </div>
+
+      {extraRows.length > 0 && (
+        // S'anuncia quan canvia, perquè l'actualització mentre s'escriu l'objectiu també s'escolti.
+        <dl aria-live="polite" className="flex flex-col gap-2">
+          {extraRows.map(([label, text]) => (
+            <div key={label} className="flex items-center justify-between gap-4 rounded-xl bg-muted/10 px-4 py-3 text-sm">
+              <dt className="text-muted">{label}</dt>
+              <dd className="font-semibold tabular-nums text-foreground">{text}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
       <TextField name="deadline" validationBehavior="aria" isInvalid={!!errors.deadline} isRequired className="flex flex-col gap-1.5">
         <Label className={LABEL_CLASS}>Fecha límite de financiación</Label>

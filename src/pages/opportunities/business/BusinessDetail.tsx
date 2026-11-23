@@ -4,13 +4,12 @@ import { Alert, Button } from "@heroui/react";
 import {
   useOpportunityStore,
   type BusinessOpportunityGetResponse,
-  type BusinessPhase,
-  type BusinessSector,
 } from "../../../store/useOpportunityStore";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useNow } from "../../../hooks/useNow";
 import RealEstateSkeleton from "../real-estate/RealEstateSkeleton";
 import Icon from "../common/OpportunityIcon";
+import { PHASE_LABELS, SECTOR_LABELS } from "../common/businessLabels";
 import Section from "../common/OpportunitySection";
 import Fact from "../common/OpportunityFact";
 import SectionTitle from "../common/OpportunitySectionTitle";
@@ -26,32 +25,6 @@ import {
   formatRatio,
   splitDescription,
 } from "../common/opportunityFormat";
-
-const SECTOR_MAPPING: Record<BusinessSector, string> = {
-  fintech: "Fintech",
-  industry: "Industria",
-  saas: "SaaS",
-  health: "Salud",
-  biotech: "Biotecnología",
-  cleantech: "Tecnologías limpias",
-  agritech: "Agrotecnología",
-  foodtech: "Tecnología alimentaria",
-  d2c: "Venta directa al consumidor",
-  education: "Educación",
-  media: "Medios",
-  tourism: "Turismo",
-  logistic: "Logística",
-  ai: "Inteligencia artificial",
-  other: "Otros",
-};
-
-const PHASE_MAPPING: Record<BusinessPhase, string> = {
-  pre_seed: "Pre-semilla",
-  seed: "Semilla",
-  early: "Etapa temprana",
-  growth: "Crecimiento",
-  late: "Etapa avanzada",
-};
 
 // La inversió empresarial encara no es pot comprometre al backend (US03.1.2).
 const INVESTMENT_UNAVAILABLE =
@@ -133,10 +106,10 @@ const BusinessDetailContent = ({ opportunity }: { opportunity: BusinessOpportuni
             </div>
             <dl className="flex flex-col gap-3 min-[960px]:w-[210px] min-[960px]:shrink-0">
               <Fact label="Sector" className="rounded-lg bg-muted/10 p-4">
-                {SECTOR_MAPPING[business.sector] ?? business.sector}
+                {SECTOR_LABELS[business.sector] ?? business.sector}
               </Fact>
               <Fact label="Fase de la empresa" className="rounded-lg bg-muted/10 p-4">
-                {PHASE_MAPPING[business.phase] ?? business.phase}
+                {PHASE_LABELS[business.phase] ?? business.phase}
               </Fact>
             </dl>
           </div>

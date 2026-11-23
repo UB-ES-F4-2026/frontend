@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Alert, Button, Card, Spinner } from "@heroui/react";
 import { useOpportunityStore, type OpportunityType } from "../../../store/useOpportunityStore";
 import { useWalletStore } from "../../../store/useWalletStore";
+import { parseEuroAmount } from "../../../service/money";
 import type { CreatedOpportunityNotice } from "../createdOpportunity";
 import {
   buildMetadata,
@@ -82,6 +83,9 @@ function CreateOpportunityForm<Data extends object>({ config }: CreateOpportunit
   const resetCreation = useOpportunityStore((state) => state.resetCreation);
 
   const availableCents = balance?.available_cents ?? null;
+  // Objectiu tal com està escrit ara, per actualitzar les files que en depenen mentre s'escriu.
+  const typedTarget = parseEuroAmount(funding.target);
+  const typedTargetCents = "cents" in typedTarget && typedTarget.cents > 0 ? typedTarget.cents : null;
   const submitting = createStatus === "loading";
 
   // Cada formulari comença sense l'error d'un enviament anterior.
@@ -224,6 +228,7 @@ function CreateOpportunityForm<Data extends object>({ config }: CreateOpportunit
                 availableCents={availableCents}
                 balanceFailed={walletStatus === "error"}
                 onRetryBalance={() => void fetchBalance()}
+                extraRows={config.step.fundingSummary?.(specific, typedTargetCents)}
               />
             )}
 
@@ -232,6 +237,7 @@ function CreateOpportunityForm<Data extends object>({ config }: CreateOpportunit
                 general={general}
                 typeLabel={config.step.label}
                 typeRows={config.step.summary(specific)}
+                fundingRows={config.step.fundingSummary?.(specific, fundingValues.targetCents) ?? []}
                 funding={fundingValues}
                 availableCents={availableCents}
                 declared={declared}

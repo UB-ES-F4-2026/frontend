@@ -8,6 +8,8 @@ interface ReviewStepProps {
   general: GeneralDraft;
   typeLabel: string;
   typeRows: [string, string][];
+  // Files pròpies del tipus a la secció «Financiación» («Participación ofrecida»).
+  fundingRows: [string, string][];
   funding: FundingValues;
   availableCents: number | null;
   declared: boolean;
@@ -54,6 +56,7 @@ export default function ReviewStep({
   general,
   typeLabel,
   typeRows,
+  fundingRows,
   funding,
   availableCents,
   declared,
@@ -83,6 +86,7 @@ export default function ReviewStep({
       <ReviewSection title="Financiación" onEdit={() => onEdit(2)} isDisabled={isDisabled}>
         <Row label="Objetivo de financiación">{formatEuroCents(funding.targetCents)}</Row>
         <Row label="Aportación mínima">{formatEuroCents(funding.minimumCents)}</Row>
+        {fundingRows.map(([label, value]) => <Row key={label} label={label}>{value}</Row>)}
         <Row label="Fecha límite">{formatDateTime(funding.deadline)}</Row>
         <Row label="Tu aportación inicial">
           {funding.initialCents !== null ? formatEuroCents(funding.initialCents) : "Sin aportación inicial"}
