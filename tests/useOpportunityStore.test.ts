@@ -50,7 +50,7 @@ describe("useOpportunityStore: comprometre una aportació", () => {
     const outcome = await useOpportunityStore.getState().commitContribution(7, 100_00);
 
     expect(post).toHaveBeenCalledExactlyOnceWith("/opportunities/7/commitments", { amount_cents: 100_00 });
-    expect(outcome).toEqual({ amount_cents: 100_00, available_cents: 150_00 });
+    expect(outcome).toEqual({ amount_cents: 100_00, available_cents: 150_00, estimated_equity: null });
     expect(useOpportunityStore.getState()).toMatchObject({
       commitStatus: "success",
       commitError: null,
@@ -70,7 +70,7 @@ describe("useOpportunityStore: comprometre una aportació", () => {
     post.mockResolvedValue(result({ opportunity: undefined as never }));
     get.mockReturnValue(new Promise(() => {}));
     const outcome = await useOpportunityStore.getState().commitContribution(7, 100_00);
-    expect(outcome).toEqual({ amount_cents: 100_00, available_cents: 150_00 });
+    expect(outcome).toEqual({ amount_cents: 100_00, available_cents: 150_00, estimated_equity: null });
     expect(get).toHaveBeenCalledWith("/opportunities/7", expect.anything());
   });
 
@@ -79,6 +79,7 @@ describe("useOpportunityStore: comprometre una aportació", () => {
     expect(await useOpportunityStore.getState().commitContribution(7, 100_00)).toEqual({
       amount_cents: 100_00,
       available_cents: null,
+      estimated_equity: null,
     });
     expect(useWalletStore.getState().balance).toEqual(startingBalance);
   });
@@ -240,5 +241,87 @@ describe("useOpportunityStore: llistat del catàleg", () => {
       details: "Internal Server Error (HTTP 500)",
       opportunities: [],
     });
+  });
+});
+
+describe("useOpportunityStore: comprometre una inversió empresarial (US03.1.2)", () => {
+  // Escenari dels mockups: 184.500,00 € compromesos d'un objectiu de 300.000,00 €.
+  const business = {
+    id: 44,
+    type: "equity",
+    title: "Expansión de BioPack",
+    target_amount_cents: 300_000_00,
+    committed_cents: 184_500_00,
+    minimum_contribution_cents: 250_00,
+    business: { pre_investment_valuation_cents: 2_700_000_00 },
+  } as BusinessOpportunityGetResponse;
+
+  const investment = (overrides: Partial<CommitmentResult> = {}): CommitmentResult => ({
+    commitment: {
+      id: 2,
+      opportunity_id: 44,
+      amount_cents: 1_000_00,
+      created_at: "2026-11-20T10:00:00Z",
+      estimated_equity: "0.03333333333333333333333333333",
+    },
+    opportunity: { id: 44, target_amount_cents: 300_000_00, committed_cents: 185_500_00 },
+    wallet: { available_cents: 500_00, committed_cents: 1_000_00, currency: "eur" },
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    useOpportunityStore.setState({ detailId: 44, realEstateOpportunity: null, businessOpportunity: business });
+    useWalletStore.setState({ status: "success", balance: { available_cents: 1_500_00, committed_cents: 0, currency: "eur" } });
+  });
+
+  it("actualitza el capital del detall empresarial i retorna la participació estimada del backend", async () => {
+    post.mockResolvedValue(investment());
+    const outcome = await useOpportunityStore.getState().commitContribution(44, 1_000_00, "equity");
+
+    expect(post).toHaveBeenCalledExactlyOnceWith("/opportunities/44/commitments", { amount_cents: 1_000_00 });
+    expect(outcome?.available_cents).toBe(500_00);
+    expect(outcome?.estimated_equity).toBeCloseTo(0.0333333, 6);
+    expect(useOpportunityStore.getState().businessOpportunity).toEqual({ ...business, committed_cents: 185_500_00 });
+    expect(useWalletStore.getState().balance).toEqual({ available_cents: 500_00, committed_cents: 1_000_00, currency: "eur" });
+  });
+
+  it("si la resposta no porta una participació vàlida, la retorna com a desconeguda", async () => {
+    post.mockResolvedValue(investment({ commitment: { ...investment().commitment, estimated_equity: "n/a" } }));
+    const outcome = await useOpportunityStore.getState().commitContribution(44, 1_000_00, "equity");
+    expect(outcome?.estimated_equity).toBeNull();
+  });
+
+  it("si la resposta no porta el capital nou, torna a llegir el detall empresarial", async () => {
+    post.mockResolvedValue(investment({ opportunity: undefined as never }));
+    get.mockReturnValue(new Promise(() => {}));
+    await useOpportunityStore.getState().commitContribution(44, 1_000_00, "equity");
+    expect(get).toHaveBeenCalledWith("/opportunities/44", expect.anything());
+  });
+
+  it.each([
+    ["409 saldo insuficient", new ApiError("Insufficient funds", 409, null), "No tienes saldo suficiente para esta inversión."],
+    ["409 ja no admet", new ApiError("Opportunity no longer accepts this contribution", 409, null), "Esta oportunidad ya no admite esta inversión."],
+    ["500", new ApiError("Server error", 500, null), "No se ha podido comprometer la inversión. Inténtalo de nuevo."],
+  ])("davant un error %s parla d'«inversión» i no canvia res", async (_label, error, message) => {
+    post.mockRejectedValue(error);
+    expect(await useOpportunityStore.getState().commitContribution(44, 1_000_00, "equity")).toBeNull();
+    expect(useOpportunityStore.getState()).toMatchObject({ commitStatus: "error", commitDetails: message, businessOpportunity: business });
+    expect(useWalletStore.getState().balance?.available_cents).toBe(1_500_00);
+  });
+
+  it("refreshBusinessOpportunity actualitza el detall empresarial sense passar per «loading»", async () => {
+    useOpportunityStore.setState({ detailStatus: "success" });
+    get.mockResolvedValue({ ...business, committed_cents: 300_000_00 });
+    await useOpportunityStore.getState().refreshBusinessOpportunity(44);
+    expect(useOpportunityStore.getState()).toMatchObject({
+      detailStatus: "success",
+      businessOpportunity: { committed_cents: 300_000_00 },
+    });
+  });
+
+  it("refreshBusinessOpportunity no toca res si no es mostra aquell detall", async () => {
+    useOpportunityStore.setState({ detailStatus: "success", detailId: 45 });
+    await useOpportunityStore.getState().refreshBusinessOpportunity(44);
+    expect(get).not.toHaveBeenCalled();
   });
 });

@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { fintechGet, fintechPost, ApiError, RequestStatus } from "../service/api";
 import {
-  INSUFFICIENT_FUNDS_MESSAGE,
+  commitmentNoun,
+  insufficientFundsMessage,
   INVALID_AMOUNT_MESSAGE,
+  type CommitmentNoun,
 } from "../pages/opportunities/dialogs/contributionAmount";
 import { useWalletStore } from "./useWalletStore";
 
@@ -102,7 +104,14 @@ export interface BusinessOpportunityGetResponse {
 
 // Resposta de POST /api/opportunities/{id}/commitments (backend: CommitmentResultRead).
 export interface CommitmentResult {
-  commitment: { id: number; opportunity_id: number; amount_cents: number; created_at: string };
+  commitment: {
+    id: number;
+    opportunity_id: number;
+    amount_cents: number;
+    created_at: string;
+    // Percentatge de l'empresa; només en les empresarials. És un Decimal: arriba com a text.
+    estimated_equity?: string | number | null;
+  };
   opportunity: { id: number; target_amount_cents: number; committed_cents: number };
   wallet: unknown;
 }
@@ -117,23 +126,29 @@ export type CommitmentErrorKind =
   | "not_accepted"
   | "unexpected";
 
-// Contracte del backend (US03.1). Els dos 409 i els dos 422 només es distingeixen pel `detail`.
-export const COMMITMENT_ERRORS: Record<CommitmentErrorKind, string> = {
+// Contracte del backend (US03.1 i US03.1.2). Els dos 409 i els dos 422 només es distingeixen
+// pel `detail`. Els textos parlen d'«aportación» o d'«inversión» segons el tipus d'oportunitat.
+export const commitmentErrors = (noun: CommitmentNoun): Record<CommitmentErrorKind, string> => ({
   // SessionManager ja porta al login: el diàleg no mostra res.
   session_expired: "",
   not_available: "Esta oportunidad ya no está disponible.",
   // El mínim ha canviat al backend; el diàleg només coneix l'anterior, per això no es mostra la xifra.
   below_minimum: "El importe es inferior a la aportación mínima.",
   invalid_amount: INVALID_AMOUNT_MESSAGE,
-  insufficient_funds: INSUFFICIENT_FUNDS_MESSAGE,
-  not_accepted: "Esta oportunidad ya no admite esta aportación.",
-  unexpected: "No se ha podido comprometer la aportación. Inténtalo de nuevo.",
-};
+  insufficient_funds: insufficientFundsMessage(noun),
+  not_accepted: `Esta oportunidad ya no admite esta ${noun}.`,
+  unexpected: `No se ha podido comprometer la ${noun}. Inténtalo de nuevo.`,
+});
+
+export const COMMITMENT_ERRORS = commitmentErrors("aportación");
 
 export interface CommitmentOutcome {
   amount_cents: number;
   // Saldo disponible després de l'aportació; null si la resposta no el porta en un format vàlid.
   available_cents: number | null;
+  // Participació estimada (%) d'una inversió empresarial; null en les immobiliàries o si la
+  // resposta no la porta en un format vàlid.
+  estimated_equity: number | null;
 }
 
 const toCommitmentError = (error: unknown): CommitmentErrorKind => {
@@ -158,6 +173,12 @@ const toCommitmentError = (error: unknown): CommitmentErrorKind => {
 const isCents = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 
+const parsePercent = (value: unknown): number | null => {
+  if ((typeof value !== "number" && typeof value !== "string") || value === "") return null;
+  const percent = Number(value);
+  return Number.isFinite(percent) && percent >= 0 ? percent : null;
+};
+
 const toErrorMessage = (error: unknown) => {
     if (error instanceof ApiError) return `${error.message} (HTTP ${error.status})`;
     if (error instanceof Error) return error.message;
@@ -166,6 +187,18 @@ const toErrorMessage = (error: unknown) => {
 
 // Descarta respuestas de peticiones de detalle que ya han sido sustituidas por otra.
 let latestDetailRequest = 0;
+
+// Llegeix el detall `id` sense passar per «loading». Retorna null si falla o si mentrestant
+// s'ha començat a carregar un altre detall.
+const readDetailSilently = async <T extends { id: number }>(id: number): Promise<T | null> => {
+  const requestId = latestDetailRequest;
+  try {
+    const data = await fintechGet<T>(`/opportunities/${id}`, { signal: AbortSignal.timeout(5000) });
+    return requestId === latestDetailRequest && data?.id === id ? data : null;
+  } catch {
+    return null;
+  }
+};
 
 interface OpportunityState {
   status: RequestStatus;
@@ -183,11 +216,17 @@ interface OpportunityState {
   // Detall empresarial: comparteix detailStatus, detailId i detailDetails amb l'immobiliari.
   businessOpportunity: BusinessOpportunityGetResponse | null;
   fetchBusinessOpportunity: (id: number) => Promise<void>;
+  refreshBusinessOpportunity: (id: number) => Promise<void>;
   commitStatus: "idle" | RequestStatus;
   commitError: CommitmentErrorKind | null;
   commitDetails: string;
-  // Compromet `amountCents` del saldo disponible en l'oportunitat. Mai llança: retorna null si falla.
-  commitContribution: (opportunityId: number, amountCents: number) => Promise<CommitmentOutcome | null>;
+  // Compromet `amountCents` del saldo disponible en l'oportunitat: una aportació immobiliària o una
+  // inversió empresarial, segons `type`. Mai llança: retorna null si falla.
+  commitContribution: (
+    opportunityId: number,
+    amountCents: number,
+    type?: OpportunityType,
+  ) => Promise<CommitmentOutcome | null>;
   resetCommitment: () => void;
 }
 
@@ -232,18 +271,11 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
     },
     refreshRealEstateOpportunity: async (id) => {
         // Només actualitza el detall que es mostra, i no invalida una càrrega completa en curs.
+        // Si falla, es manté el detall que ja es mostrava.
         const isCurrent = () => get().detailId === id && get().detailStatus === "success";
         if (!isCurrent()) return;
-        const requestId = latestDetailRequest;
-        try {
-            const data = await fintechGet<RealEstateOpportunityGetResponse>(`/opportunities/${id}`, {
-                signal: AbortSignal.timeout(5000)
-            });
-            if (requestId !== latestDetailRequest || !isCurrent() || data?.id !== id) return;
-            set({ realEstateOpportunity: data });
-        } catch {
-            // Si falla, es manté el detall que ja es mostrava.
-        }
+        const data = await readDetailSilently<RealEstateOpportunityGetResponse>(id);
+        if (data && isCurrent()) set({ realEstateOpportunity: data });
     },
     businessOpportunity: null,
     fetchBusinessOpportunity: async (id) => {
@@ -260,10 +292,17 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
             set({ detailStatus: "error", detailDetails: toErrorMessage(error), businessOpportunity: null });
         }
     },
+    refreshBusinessOpportunity: async (id) => {
+        // El mateix que refreshRealEstateOpportunity, per al detall empresarial.
+        const isCurrent = () => get().detailId === id && get().detailStatus === "success";
+        if (!isCurrent()) return;
+        const data = await readDetailSilently<BusinessOpportunityGetResponse>(id);
+        if (data && isCurrent()) set({ businessOpportunity: data });
+    },
     commitStatus: "idle",
     commitError: null,
     commitDetails: "",
-    commitContribution: async (opportunityId, amountCents) => {
+    commitContribution: async (opportunityId, amountCents, type = "real_estate") => {
         // Evita comprometre dues vegades amb un doble clic a «Confirmar aportación».
         if (get().commitStatus === "loading") return null;
         set({ commitStatus: "loading", commitError: null, commitDetails: "" });
@@ -273,27 +312,43 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
                 { amount_cents: amountCents },
             );
             const funding = data?.opportunity;
-            const current = get().realEstateOpportunity;
-            if (current?.id === opportunityId && isCents(funding?.committed_cents) && isCents(funding?.target_amount_cents)) {
+            const validFunding = isCents(funding?.committed_cents) && isCents(funding?.target_amount_cents);
+            const isEquity = type === "equity";
+            const current = isEquity ? get().businessOpportunity : get().realEstateOpportunity;
+            if (current?.id === opportunityId && validFunding) {
                 // El detall mostra a l'instant el capital compromès i el percentatge nous.
-                set({
-                    realEstateOpportunity: {
-                        ...current,
-                        committed_cents: funding.committed_cents,
-                        target_amount_cents: funding.target_amount_cents,
-                    },
-                });
+                const updated = {
+                    committed_cents: funding.committed_cents,
+                    target_amount_cents: funding.target_amount_cents,
+                };
+                if (isEquity) {
+                    const business = get().businessOpportunity;
+                    if (business) set({ businessOpportunity: { ...business, ...updated } });
+                } else {
+                    const realEstate = get().realEstateOpportunity;
+                    if (realEstate) set({ realEstateOpportunity: { ...realEstate, ...updated } });
+                }
             } else if (current?.id === opportunityId) {
-                // Resposta inesperada: l'aportació s'ha fet, tornem a llegir el detall.
-                void get().fetchRealEstateOpportunity(opportunityId);
+                // Resposta inesperada: el compromís s'ha fet, tornem a llegir el detall.
+                void (isEquity
+                    ? get().fetchBusinessOpportunity(opportunityId)
+                    : get().fetchRealEstateOpportunity(opportunityId));
             }
             const balance = useWalletStore.getState().applyBalance(data?.wallet);
             set({ commitStatus: "success", commitError: null, commitDetails: "" });
-            return { amount_cents: amountCents, available_cents: balance?.available_cents ?? null };
+            return {
+                amount_cents: amountCents,
+                available_cents: balance?.available_cents ?? null,
+                estimated_equity: isEquity ? parsePercent(data?.commitment?.estimated_equity) : null,
+            };
         } catch (error: unknown) {
             // Un error no canvia ni el saldo ni el capital compromès que es mostren.
             const kind = toCommitmentError(error);
-            set({ commitStatus: "error", commitError: kind, commitDetails: COMMITMENT_ERRORS[kind] });
+            set({
+                commitStatus: "error",
+                commitError: kind,
+                commitDetails: commitmentErrors(commitmentNoun(type))[kind],
+            });
             return null;
         }
     },
