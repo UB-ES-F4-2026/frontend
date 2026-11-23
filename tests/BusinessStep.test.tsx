@@ -5,12 +5,16 @@ import { describe, expect, it } from "vitest";
 import BusinessStep from "../src/pages/my-opportunities/create/business/BusinessStep";
 import { EMPTY_BUSINESS, type BusinessDraft } from "../src/pages/my-opportunities/create/business/businessDraft";
 
-// El pas guarda les dades al formulari pare; aquí n'hi fa les veus un estat local.
-let current: BusinessDraft;
+// El pas guarda les dades al formulari pare; aquí n'hi fa les veus un estat local. `current`
+// recull l'últim valor que el pas ha enviat al pare.
+let current: BusinessDraft = EMPTY_BUSINESS;
 function Harness() {
   const [value, setValue] = useState(EMPTY_BUSINESS);
-  current = value;
-  return <BusinessStep value={value} onChange={setValue} errors={{}} />;
+  const handleChange = (next: BusinessDraft) => {
+    current = next;
+    setValue(next);
+  };
+  return <BusinessStep value={value} onChange={handleChange} errors={{}} />;
 }
 
 const user = () => userEvent.setup({ delay: null });

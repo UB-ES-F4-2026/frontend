@@ -8,12 +8,16 @@ import { clickMap, leaflet, pressEnterOnMap } from "./support/reactLeaflet";
 
 vi.mock("react-leaflet", async () => (await import("./support/reactLeaflet")).reactLeafletMock);
 
-// El pas guarda les dades al formulari pare; aquí n'hi fa les veus un estat local.
-let current: RealEstateDraft;
+// El pas guarda les dades al formulari pare; aquí n'hi fa les veus un estat local. `current`
+// recull l'últim valor que el pas ha enviat al pare.
+let current: RealEstateDraft = EMPTY_REAL_ESTATE;
 function Harness({ initial = EMPTY_REAL_ESTATE }: { initial?: RealEstateDraft }) {
   const [value, setValue] = useState(initial);
-  current = value;
-  return <RealEstateStep value={value} onChange={setValue} errors={{}} />;
+  const handleChange = (next: RealEstateDraft) => {
+    current = next;
+    setValue(next);
+  };
+  return <RealEstateStep value={value} onChange={handleChange} errors={{}} />;
 }
 
 const user = () => userEvent.setup({ delay: null });
