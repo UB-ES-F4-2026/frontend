@@ -23,6 +23,18 @@ export interface CompletedDeposit {
   reflected: boolean;
 }
 
+// Cos de POST /api/me/wallet/withdrawals (backend: WithdrawalRequest), amb l'IBAN normalitzat.
+export interface WithdrawalRequest {
+  amount_cents: number;
+  iban: string;
+  account_holder: string;
+}
+
+// Retirada que s'acaba de confirmar, perquè «Mi saldo» la pugui anunciar.
+export interface CompletedWithdrawal {
+  amount_cents: number;
+}
+
 interface WalletState {
   status: "idle" | RequestStatus;
   details: string;
@@ -30,6 +42,8 @@ interface WalletState {
   fetchBalance: () => Promise<WalletBalance | null>;
   // Aplica el saldo que el backend retorna després d'una aportació o inversió correcta.
   applyBalance: (data: unknown) => WalletBalance | null;
+  // Descarta el saldo i la consulta en curs, sense tocar els avisos d'ingrés o de retirada.
+  clearBalance: () => void;
   depositStatus: "idle" | RequestStatus;
   depositDetails: string;
   lastDeposit: CompletedDeposit | null;
@@ -40,6 +54,13 @@ interface WalletState {
   completeDeposit: () => Promise<CompletedDeposit | null>;
   // Descarta el pagament en curs i el seu error, però no l'ingrés que ha d'anunciar «Mi saldo».
   resetDeposit: () => void;
+  withdrawalStatus: "idle" | RequestStatus;
+  withdrawalDetails: string;
+  lastWithdrawal: CompletedWithdrawal | null;
+  // Retira fons del saldo disponible (retirada simulada). Mai llança: retorna null si falla.
+  withdraw: (request: WithdrawalRequest) => Promise<CompletedWithdrawal | null>;
+  // Descarta la retirada en curs i el seu error, però no la que ha d'anunciar «Mi saldo».
+  resetWithdrawal: () => void;
   reset: () => void;
 }
 
@@ -69,6 +90,28 @@ const toDepositError = (error: unknown): string => {
     // 400: Stripe no ha pogut crear el pagament. La resta, error inesperat.
     default:
       return DEPOSIT_ERROR;
+  }
+};
+
+// Mínim de WithdrawalRequest (backend).
+export const MIN_WITHDRAWAL_CENTS = 50;
+
+const WITHDRAWAL_ERROR = "No se ha podido realizar la retirada. Inténtalo de nuevo.";
+
+const toWithdrawalError = (error: unknown): string => {
+  if (!(error instanceof ApiError)) return WITHDRAWAL_ERROR;
+  switch (error.status) {
+    // SessionManager ja porta al login: no cal cap missatge.
+    case 401:
+      return "";
+    // El saldo disponible ha baixat des que es va llegir (p. ex. una aportació des d'una altra pestanya).
+    case 409:
+      return "Tu saldo disponible ya no cubre este importe. Vuelve atrás y revisa el importe.";
+    // Les dades no compleixen WithdrawalRequest. La validació local ho evita; es manté per si canvia.
+    case 422:
+      return "Los datos de la retirada no son válidos. Vuelve atrás y revísalos.";
+    default:
+      return WITHDRAWAL_ERROR;
   }
 };
 
@@ -120,6 +163,9 @@ let depositRevision = 0;
 // (null si no s'ha pogut llegir el saldo abans de pagar).
 let pendingDeposit: { amountCents: number; expectedTotal: bigint | null } | null = null;
 
+// El mateix per a les retirades: una resposta que arriba després de tancar la sessió es descarta.
+let withdrawalRevision = 0;
+
 // Invalida la consulta en curs perquè una resposta antiga no substitueixi dades més noves.
 const cancelPendingRequest = () => {
   requestRevision++;
@@ -164,6 +210,11 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     cancelPendingRequest();
     set({ status: "success", details: "", balance });
     return balance;
+  },
+
+  clearBalance: () => {
+    cancelPendingRequest();
+    set({ status: "idle", details: "", balance: null });
   },
 
   depositStatus: "idle",
@@ -223,10 +274,41 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     set({ depositStatus: "idle", depositDetails: "" });
   },
 
-  // En sortir de la pàgina o canviar de sessió, el saldo anterior deixa d'existir.
+  withdrawalStatus: "idle",
+  withdrawalDetails: "",
+  lastWithdrawal: null,
+
+  withdraw: async (request) => {
+    // Evita retirar dues vegades amb un doble clic a «Confirmar retirada».
+    if (get().withdrawalStatus === "loading") return null;
+    const revision = ++withdrawalRevision;
+    set({ withdrawalStatus: "loading", withdrawalDetails: "" });
+    try {
+      await fintechPost<unknown>("/me/wallet/withdrawals", request);
+      if (revision !== withdrawalRevision) return null;
+      const withdrawal = { amount_cents: request.amount_cents };
+      set({ withdrawalStatus: "success", withdrawalDetails: "", lastWithdrawal: withdrawal });
+      return withdrawal;
+    } catch (error: unknown) {
+      if (revision === withdrawalRevision) {
+        set({ withdrawalStatus: "error", withdrawalDetails: toWithdrawalError(error) });
+        // El saldo llegit ja no és vigent: es torna a llegir perquè el primer pas mostri l'actual.
+        if (error instanceof ApiError && error.status === 409) void get().fetchBalance();
+      }
+      return null;
+    }
+  },
+
+  resetWithdrawal: () => {
+    withdrawalRevision++;
+    set({ withdrawalStatus: "idle", withdrawalDetails: "" });
+  },
+
+  // En sortir de la pàgina o canviar de sessió, el saldo anterior i els avisos deixen d'existir.
   reset: () => {
-    cancelPendingRequest();
+    get().clearBalance();
     get().resetDeposit();
-    set({ status: "idle", details: "", balance: null, lastDeposit: null });
+    get().resetWithdrawal();
+    set({ lastDeposit: null, lastWithdrawal: null });
   },
 }));

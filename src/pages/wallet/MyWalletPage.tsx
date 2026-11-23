@@ -29,8 +29,9 @@ export default function MyWalletPage() {
   const balance = useWalletStore((state) => state.balance);
   const fetchBalance = useWalletStore((state) => state.fetchBalance);
   const reset = useWalletStore((state) => state.reset);
-  // Ingrés que s'acaba de pagar. Es llegeix en entrar perquè sortir (reset) l'esborra del store.
+  // Ingrés o retirada que s'acaba de fer. Es llegeixen en entrar perquè sortir (reset) els esborra del store.
   const [deposit] = useState(() => useWalletStore.getState().lastDeposit);
+  const [withdrawal] = useState(() => useWalletStore.getState().lastWithdrawal);
 
   // Cada entrada (o canvi de client) fa una lectura nova; en sortir es descarta el saldo.
   useEffect(() => {
@@ -40,6 +41,9 @@ export default function MyWalletPage() {
   }, [accountId, fetchBalance, reset]);
 
   const isLoading = status === "idle" || status === "loading";
+  // Només es pot retirar el saldo disponible: mentre no se sap, el botó també queda desactivat.
+  const availableCents = status === "success" && balance ? balance.available_cents : null;
+  const withoutBalance = availableCents === 0;
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
@@ -72,6 +76,20 @@ export default function MyWalletPage() {
                 Actualizar saldo
               </Button>
             )}
+          </div>
+        )}
+
+        {withdrawal && (
+          <div role="status">
+            <Alert status="success">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>Retirada realizada</Alert.Title>
+                <Alert.Description>
+                  Se han retirado {formatEuroCents(withdrawal.amount_cents)} de tu saldo disponible.
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
           </div>
         )}
 
@@ -138,12 +156,33 @@ export default function MyWalletPage() {
           </Card>
         </section>
 
-        <Link
-          to="/my-balance/deposit"
-          className={`${buttonVariants({ variant: "primary", size: "lg" })} w-fit bg-warning text-warning-foreground hover:bg-warning/90`}
-        >
-          Ingresar fondos
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to="/my-balance/deposit"
+            className={`${buttonVariants({ variant: "primary", size: "lg" })} bg-warning text-warning-foreground hover:bg-warning/90`}
+          >
+            Ingresar fondos
+          </Link>
+          {availableCents !== null && availableCents > 0 ? (
+            <Link to="/my-balance/withdraw" className={buttonVariants({ variant: "outline", size: "lg" })}>
+              Retirar fondos
+            </Link>
+          ) : (
+            <Button
+              variant="outline"
+              size="lg"
+              isDisabled
+              aria-describedby={withoutBalance ? "withdraw-unavailable" : undefined}
+            >
+              Retirar fondos
+            </Button>
+          )}
+          {withoutBalance && (
+            <p id="withdraw-unavailable" className="text-sm text-muted">
+              No tienes saldo disponible para retirar.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { buttonVariants, Chip } from "@heroui/react";
+import { buttonVariants } from "@heroui/react";
 import { NavLink } from "react-router";
 import cityDawn from "../../assets/city_dawn.jpg";
 import { useAuthStore } from "../../store/useAuthStore";
