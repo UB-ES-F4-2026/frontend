@@ -326,6 +326,30 @@ describe("useOpportunityStore: comprometre una inversió empresarial (US03.1.2)"
   });
 });
 
+describe("useOpportunityStore: detall immobiliari", () => {
+  it("descarta la resposta d'una consulta substituïda per una de més recent", async () => {
+    let resolveFirst!: (value: RealEstateOpportunityGetResponse) => void;
+    let resolveSecond!: (value: RealEstateOpportunityGetResponse) => void;
+    get
+      .mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockReturnValueOnce(new Promise((resolve) => { resolveSecond = resolve; }));
+
+    const firstRequest = useOpportunityStore.getState().fetchRealEstateOpportunity(1);
+    const secondRequest = useOpportunityStore.getState().fetchRealEstateOpportunity(2);
+    const secondDetail = { ...detail, id: 2 };
+    resolveSecond(secondDetail);
+    await secondRequest;
+    resolveFirst({ ...detail, id: 1 });
+    await firstRequest;
+
+    expect(useOpportunityStore.getState()).toMatchObject({
+      detailStatus: "success",
+      detailId: 2,
+      realEstateOpportunity: secondDetail,
+    });
+  });
+});
+
 describe("useOpportunityStore: crear una oportunitat", () => {
   const metadata = {
     type: "real_estate" as const,

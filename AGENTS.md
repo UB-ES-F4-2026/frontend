@@ -30,3 +30,25 @@ Per invocar-ne un: «Actua com a Frontend. Implementa la issue #23». Si la peti
 - Abans d'`amend` o `rebase`, comprova branca i `HEAD` (`git branch --show-current`, `git log -1`): poden haver canviat des de l'última ordre.
 - Commits i PRs sense atribució d'IA: cap `Co-Authored-By` d'assistent ni línia «Generated with …». Han de semblar escrits només per l'autor humà.
 - Tanca cada tasca amb: què has canviat, com ho has comprovat (ordres i resultat) i què queda pendent.
+
+## Proves unitàries
+
+Abans d'afegir o modificar un comportament de frontend, llegeix
+[`docs/qa/UNIT_TESTING.md`](docs/qa/UNIT_TESTING.md). Aquesta guia és
+obligatòria per als rols Frontend i QA quan una tasca canvia comportament
+observable.
+
+Quan es consumeixi un endpoint nou, prova unitàriament la normalització de
+dades, el store i els estats de càrrega, error i resposta obsoleta. Simula
+`src/service/api.ts`; no facis peticions reals. Si la tasca comprova el
+contracte amb l'API o recorre frontend i backend, afegeix una prova
+d'integració o E2E, no l'etiquetis com a unitària.
+
+## Proves d'integració
+
+Abans de modificar un flux amb API, llegeix
+[`docs/qa/INTEGRATION_TESTING.md`](docs/qa/INTEGRATION_TESTING.md). Les proves
+noves són `tests/*.integration.test.tsx`: uneixen component, store, router i
+`src/service/api.ts`, i només simulen `fetch`. Cada flux cobreix payload,
+càrrega, èxit i error recuperable. Un E2E es reserva per recorreguts crítics
+que travessen els dos repositoris.
