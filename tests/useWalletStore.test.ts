@@ -289,3 +289,103 @@ describe("useWalletStore: ingrés amb Stripe (US04.2)", () => {
     expect(useWalletStore.getState().lastDeposit).toBeNull();
   });
 });
+
+describe("useWalletStore: retirada simulada (US04.3)", () => {
+  const request = { amount_cents: 10000, iban: "ES9121000418450200051332", account_holder: "Ana García López" };
+  // Cos de WithdrawalRead tal com l'envia el backend.
+  const response = { amount_cents: 10000, masked_iban: "ES91****************1332", account_holder: "Ana García López", available_cents: 15000, currency: "eur" };
+
+  it("envia l'import en cèntims, l'IBAN i el titular, i desa la retirada per a «Mi saldo»", async () => {
+    post.mockResolvedValueOnce(response);
+    expect(await useWalletStore.getState().withdraw(request)).toEqual({ amount_cents: 10000 });
+    expect(post).toHaveBeenCalledExactlyOnceWith("/me/wallet/withdrawals", request);
+    expect(useWalletStore.getState()).toMatchObject({
+      withdrawalStatus: "success",
+      withdrawalDetails: "",
+      lastWithdrawal: { amount_cents: 10000 },
+    });
+  });
+
+  it("evita retirar dues vegades amb un doble clic", async () => {
+    let resolve!: (value: unknown) => void;
+    post.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    const first = useWalletStore.getState().withdraw(request);
+    expect(useWalletStore.getState().withdrawalStatus).toBe("loading");
+    expect(await useWalletStore.getState().withdraw(request)).toBeNull();
+    resolve(response);
+    expect(await first).toEqual({ amount_cents: 10000 });
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["401 (SessionManager porta al login)", new ApiError("Invalid or missing session", 401, null), ""],
+    ["409 (saldo insuficient)", new ApiError("Insufficient available balance", 409, null), "Tu saldo disponible ya no cubre este importe. Vuelve atrás y revisa el importe."],
+    ["422", new ApiError("HTTP Error 422", 422, { detail: [] }), "Los datos de la retirada no son válidos. Vuelve atrás y revísalos."],
+    ["500", new ApiError("Server error", 500, null), "No se ha podido realizar la retirada. Inténtalo de nuevo."],
+    ["de xarxa", new TypeError("Failed to fetch"), "No se ha podido realizar la retirada. Inténtalo de nuevo."],
+  ])("tradueix un error %s sense mostrar detalls interns", async (_label, error, message) => {
+    post.mockRejectedValueOnce(error);
+    get.mockResolvedValue(wallet(5000, 0));
+    expect(await useWalletStore.getState().withdraw(request)).toBeNull();
+    expect(useWalletStore.getState()).toMatchObject({ withdrawalStatus: "error", withdrawalDetails: message, lastWithdrawal: null });
+  });
+
+  it("amb un 409 torna a llegir el saldo, que ja no és vigent", async () => {
+    post.mockRejectedValueOnce(new ApiError("Insufficient available balance", 409, null));
+    get.mockResolvedValueOnce(wallet(5000, 20000));
+    await useWalletStore.getState().withdraw(request);
+    await vi.waitFor(() => expect(useWalletStore.getState()).toMatchObject({ status: "success", balance: { available_cents: 5000 } }));
+    expect(get).toHaveBeenCalledOnce();
+  });
+
+  it("amb qualsevol altre error no torna a llegir el saldo", async () => {
+    post.mockRejectedValueOnce(new ApiError("Server error", 500, null));
+    await useWalletStore.getState().withdraw(request);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("descarta la resposta si s'ha tancat la sessió mentrestant", async () => {
+    let resolve!: (value: unknown) => void;
+    post.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    const pending = useWalletStore.getState().withdraw(request);
+    useWalletStore.getState().reset();
+    resolve(response);
+    expect(await pending).toBeNull();
+    expect(useWalletStore.getState()).toMatchObject({ withdrawalStatus: "idle", lastWithdrawal: null });
+  });
+
+  it("resetWithdrawal esborra l'error però conserva la retirada que ha d'anunciar «Mi saldo»", () => {
+    useWalletStore.setState({ withdrawalStatus: "error", withdrawalDetails: "Error", lastWithdrawal: { amount_cents: 100 } });
+    useWalletStore.getState().resetWithdrawal();
+    expect(useWalletStore.getState()).toMatchObject({
+      withdrawalStatus: "idle",
+      withdrawalDetails: "",
+      lastWithdrawal: { amount_cents: 100 },
+    });
+  });
+
+  it("reset (sortir de «Mi saldo» o tancar la sessió) esborra l'avís de la retirada", () => {
+    useWalletStore.setState({ lastWithdrawal: { amount_cents: 100 } });
+    useWalletStore.getState().reset();
+    expect(useWalletStore.getState().lastWithdrawal).toBeNull();
+  });
+});
+
+describe("useWalletStore: clearBalance", () => {
+  it("descarta el saldo i la consulta en curs sense tocar els avisos d'ingrés ni de retirada", async () => {
+    let resolve!: (value: unknown) => void;
+    get.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    useWalletStore.setState({ lastDeposit: { amount_cents: 100, reflected: true }, lastWithdrawal: { amount_cents: 200 } });
+    const pending = useWalletStore.getState().fetchBalance();
+    useWalletStore.getState().clearBalance();
+    resolve(wallet(5000, 0));
+    expect(await pending).toBeNull();
+    expect(useWalletStore.getState()).toMatchObject({
+      status: "idle",
+      balance: null,
+      lastDeposit: { amount_cents: 100, reflected: true },
+      lastWithdrawal: { amount_cents: 200 },
+    });
+  });
+});
+
