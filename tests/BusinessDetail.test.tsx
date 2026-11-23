@@ -65,7 +65,7 @@ function buildBusinessOpportunity(
       location: "Sabadell, Barcelona, España",
     },
     business: {
-      sector: "cleantech",
+      sector: "energy",
       phase: "growth",
       pre_investment_valuation_cents: 2_700_000_00,
       // El backend envia el Decimal com a text.
@@ -196,7 +196,7 @@ describe("BusinessDetail - Contingut del detall empresarial", () => {
     const summary = screen.getByRole("region", { name: "Resumen del proyecto" });
     expect(within(summary).getByText("La empresa ya suministra a más de 40 restaurantes de Cataluña.")).toBeInTheDocument();
     expect(within(summary).getByText("Sector")).toBeInTheDocument();
-    expect(within(summary).getByText("Tecnologías limpias")).toBeInTheDocument();
+    expect(within(summary).getByText("Energía")).toBeInTheDocument();
     expect(within(summary).getByText("Fase de la empresa")).toBeInTheDocument();
     expect(within(summary).getByText("Crecimiento")).toBeInTheDocument();
 

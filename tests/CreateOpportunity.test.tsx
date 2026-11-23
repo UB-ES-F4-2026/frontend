@@ -603,3 +603,122 @@ describe("cancel·lar", () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+describe("oportunitat empresarial (US06.1.2)", () => {
+  const valuationField = () => screen.getByLabelText(/Valoración previa a la inversión/);
+  const equityRow = () => screen.getByText("Participación ofrecida").parentElement;
+
+  const goToBusiness = async (u: User) => {
+    renderAt("/my-opportunities/new/equity");
+    await fillGeneral(u);
+    await u.click(continueButton());
+    expect(stepHeading()).toHaveTextContent("Empresa");
+  };
+
+  const fillBusiness = async (u: User) => {
+    await choose(u, /Sector/, "Alimentación y bebidas");
+    await choose(u, /Fase de la empresa/, "Crecimiento");
+    await u.type(valuationField(), "1350000");
+  };
+
+  it("no continua sense sector, fase ni valoració prèvia, i l'error apareix sota cada camp", async () => {
+    const u = user();
+    await goToBusiness(u);
+
+    await u.click(continueButton());
+
+    expect(stepHeading()).toHaveTextContent("Empresa");
+    expect(screen.getByText("Selecciona el sector.")).toBeInTheDocument();
+    expect(screen.getByText("Selecciona la fase de la empresa.")).toBeInTheDocument();
+    expect(valuationField()).toHaveAccessibleDescription(
+      expect.stringContaining("Introduce la valoración previa a la inversión."),
+    );
+  });
+
+  it("exigeix una valoració prèvia positiva", async () => {
+    const u = user();
+    await goToBusiness(u);
+    await choose(u, /Sector/, "Tecnología");
+    await choose(u, /Fase de la empresa/, "Idea");
+    await u.type(valuationField(), "0");
+
+    await u.click(continueButton());
+
+    expect(valuationField()).toHaveAccessibleDescription(expect.stringContaining("La valoración previa debe ser mayor que 0."));
+    expect(stepHeading()).toHaveTextContent("Empresa");
+  });
+
+  it("amb una valoració d'1.350.000 €, un objectiu de 150.000 € mostra 10,0 % i s'actualitza en canviar-lo", async () => {
+    const u = user();
+    await goToBusiness(u);
+    await fillBusiness(u);
+    await u.click(continueButton());
+    await screen.findByText("8.000,00 €");
+
+    expect(equityRow()).toHaveTextContent("Participación ofrecida—");
+    await u.type(targetField(), "150000");
+    expect(equityRow()).toHaveTextContent("Participación ofrecida10,0 %");
+
+    await u.clear(targetField());
+    await u.type(targetField(), "450000");
+    expect(equityRow()).toHaveTextContent("Participación ofrecida25,0 %");
+  });
+
+  it("resumeix l'empresa i la participació i envia l'oportunitat amb l'aportació inicial reservada", async () => {
+    const u = user();
+    await goToBusiness(u);
+    await fillBusiness(u);
+    await u.click(continueButton());
+    await fillFunding(u, { initial: "5000" });
+    await u.click(continueButton());
+
+    const business = screen.getByRole("region", { name: "Empresa" });
+    expect(business).toHaveTextContent("Sector · FaseAlimentación y bebidas · Crecimiento");
+    expect(business).toHaveTextContent("Valoración previa a la inversión1.350.000,00 €");
+    const funding = screen.getByRole("region", { name: "Financiación" });
+    expect(funding).toHaveTextContent("Participación ofrecida10,0 %");
+    expect(funding).toHaveTextContent("Saldo disponible tras el envío3.000,00 €");
+
+    post.mockResolvedValue({ id: 101 });
+    await u.click(screen.getByRole("checkbox", { name: /Declaro que la información es veraz/ }));
+    await u.click(screen.getByRole("button", { name: "Enviar a revisión" }));
+
+    const metadata = JSON.parse((post.mock.calls[0][1] as FormData).get("metadata") as string);
+    expect(metadata).toMatchObject({
+      type: "equity",
+      target_amount_cents: 15_000_000,
+      initial_contribution_cents: 500_000,
+      business: { sector: "food_and_beverage", phase: "growth", pre_investment_valuation_cents: 135_000_000 },
+    });
+    expect(metadata).not.toHaveProperty("real_estate");
+    expect(await screen.findByText("Oportunidad enviada a revisión")).toBeInTheDocument();
+    expect(path()).toHaveTextContent(/^\/my-opportunities$/);
+    expect(screen.getByText(/se publicará cuando sea aprobada/)).toHaveTextContent(
+      "Se han reservado 5.000,00 € de tu saldo como aportación inicial.",
+    );
+  });
+
+  it("conserva les dades de l'empresa en tornar enrere des de «Financiación»", async () => {
+    const u = user();
+    await goToBusiness(u);
+    await fillBusiness(u);
+    await u.click(continueButton());
+    await u.click(screen.getByRole("button", { name: "Volver" }));
+
+    expect(screen.getByRole("button", { name: /Sector/ })).toHaveTextContent("Alimentación y bebidas");
+    expect(screen.getByRole("button", { name: /Fase de la empresa/ })).toHaveTextContent("Crecimiento");
+    expect(valuationField()).toHaveValue("1.350.000,00");
+  });
+
+  it("cancel·lar des del pas «Empresa» no crea l'oportunitat", async () => {
+    const u = user();
+    await goToBusiness(u);
+    await fillBusiness(u);
+
+    await u.click(screen.getByRole("button", { name: "Cancelar" }));
+    await u.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Descartar" }));
+
+    expect(path()).toHaveTextContent(/^\/my-opportunities$/);
+    expect(post).not.toHaveBeenCalled();
+  });
+});
