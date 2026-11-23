@@ -65,6 +65,41 @@ export interface RealEstateOpportunityGetResponse extends Opportunity {
   server_time: string;
 }
 
+// Valors dels enums del backend (app/models/business_opportunity.py).
+export type BusinessSector =
+  | "fintech" | "industry" | "saas" | "health" | "biotech" | "cleantech" | "agritech"
+  | "foodtech" | "d2c" | "education" | "media" | "tourism" | "logistic" | "ai" | "other";
+
+export type BusinessPhase = "pre_seed" | "seed" | "early" | "growth" | "late";
+
+export interface Business {
+  sector: BusinessSector;
+  phase: BusinessPhase;
+  pre_investment_valuation_cents: number;
+  // Percentatge ja multiplicat per 100. El backend l'envia com a Decimal: arriba com a text.
+  equity_offered: number | string;
+}
+
+// Resposta de GET /api/opportunities/{id} per a una oportunitat empresarial
+// (backend: BusinessOpportunityDetailRead). No porta galeria pròpia.
+export interface BusinessOpportunityGetResponse {
+  id: number;
+  type: OpportunityType;
+  status: string;
+  title: string;
+  description: string;
+  location: string;
+  cover_image_url: string | null;
+  target_amount_cents: number;
+  committed_cents: number;
+  minimum_contribution_cents: number | null;
+  date_published: string;
+  deadline: string;
+  promoter: Promoter;
+  business: Business;
+  server_time: string;
+}
+
 // Resposta de POST /api/opportunities/{id}/commitments (backend: CommitmentResultRead).
 export interface CommitmentResult {
   commitment: { id: number; opportunity_id: number; amount_cents: number; created_at: string };
@@ -136,7 +171,8 @@ interface OpportunityState {
   status: RequestStatus;
   details: string;
   opportunities: Opportunity[];
-  fetchOpportunities: (term?: string | null) => Promise<void>;
+  // `type` null (o absent): totes les oportunitats, sense filtrar per tipus d'actiu.
+  fetchOpportunities: (term?: string | null, type?: OpportunityType | null) => Promise<void>;
   detailStatus: RequestStatus;
   detailId: number | null;
   detailDetails: string;
@@ -144,6 +180,9 @@ interface OpportunityState {
   fetchRealEstateOpportunity: (id: number) => Promise<void>;
   // Torna a llegir el detall que ja es mostra sense passar per «loading» (no desmunta la pàgina).
   refreshRealEstateOpportunity: (id: number) => Promise<void>;
+  // Detall empresarial: comparteix detailStatus, detailId i detailDetails amb l'immobiliari.
+  businessOpportunity: BusinessOpportunityGetResponse | null;
+  fetchBusinessOpportunity: (id: number) => Promise<void>;
   commitStatus: "idle" | RequestStatus;
   commitError: CommitmentErrorKind | null;
   commitDetails: string;
@@ -157,12 +196,14 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
     details: "",
     opportunities: [],
     searchedOpportunities: [],
-    fetchOpportunities: async (term?: string | null) => {
+    fetchOpportunities: async (term?: string | null, type?: OpportunityType | null) => {
         set({ status: "loading", details: "" });
         try {
+            // buildUrl omet els paràmetres null o undefined: sense tipus no s'envia `type`.
             const data = await fintechGet<Opportunity[]>("/opportunities", {
                 params: {
-                    name: term
+                    name: term,
+                    type,
                 },
                 signal: AbortSignal.timeout(5000)
             });
@@ -202,6 +243,21 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
             set({ realEstateOpportunity: data });
         } catch {
             // Si falla, es manté el detall que ja es mostrava.
+        }
+    },
+    businessOpportunity: null,
+    fetchBusinessOpportunity: async (id) => {
+        const requestId = ++latestDetailRequest;
+        set({ detailStatus: "loading", detailId: id, detailDetails: "", businessOpportunity: null });
+        try {
+            const data = await fintechGet<BusinessOpportunityGetResponse>(`/opportunities/${id}`, {
+                signal: AbortSignal.timeout(5000)
+            });
+            if (requestId !== latestDetailRequest) return;
+            set({ detailStatus: "success", businessOpportunity: data });
+        } catch (error : unknown) {
+            if (requestId !== latestDetailRequest) return;
+            set({ detailStatus: "error", detailDetails: toErrorMessage(error), businessOpportunity: null });
         }
     },
     commitStatus: "idle",

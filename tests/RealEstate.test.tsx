@@ -616,6 +616,10 @@ describe("Acceso al detalle desde OpportunityCard y LoginToViewDetailModal", () 
             path="/opportunities/real-estate/:id"
             element={<h1>Página simulada: detalle inmobiliario</h1>}
           />
+          <Route
+            path="/opportunities/equity/:id"
+            element={<h1>Página simulada: detalle empresarial</h1>}
+          />
           <Route path="/login" element={<h1>Página simulada: login</h1>} />
           <Route path="/register" element={<h1>Página simulada: registro</h1>} />
         </Routes>
@@ -674,28 +678,38 @@ describe("Acceso al detalle desde OpportunityCard y LoginToViewDetailModal", () 
     );
   });
 
-  it("muestra un aviso y no navega si el usuario autenticado pulsa una oportunidad empresarial (equity)", async () => {
-    authState.active_account = {
-      id: 1,
-      email: "sergio@example.com",
-      created_at: "2026-10-17T10:00:00Z",
-    };
+  const sampleBusinessCard: Opportunity = {
+    ...sampleRealEstateCard,
+    id: 44,
+    type: "equity",
+    title: "Startup EcoLogistics SL",
+  };
+
+  it("navega a /opportunities/equity/:id sin aviso cuando el usuario autenticado pulsa una oportunidad empresarial", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const user = userEvent.setup();
-
-    renderCardWithRoutes({
-      ...sampleRealEstateCard,
-      id: 44,
-      type: "equity",
-      title: "Startup EcoLogistics SL",
-    });
+    renderCardWithRoutes(sampleBusinessCard);
 
     await user.click(screen.getByText("Startup EcoLogistics SL"));
 
-    expect(alertSpy).toHaveBeenCalledExactlyOnceWith(
-      "Actualmente solo se pueden ver detalles de oportunidades inmobiliarias.",
-    );
-    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/opportunities$/);
+    expect(
+      await screen.findByRole("heading", { name: "Página simulada: detalle empresarial" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/opportunities\/equity\/44$/);
+    expect(alertSpy).not.toHaveBeenCalled();
     alertSpy.mockRestore();
+  });
+
+  it("abre el detalle empresarial sin el modal de inicio de sesión aunque no haya sesión", async () => {
+    authState.active_account = null;
+    const user = userEvent.setup();
+    renderCardWithRoutes(sampleBusinessCard);
+
+    await user.click(screen.getByText("Startup EcoLogistics SL"));
+
+    expect(
+      await screen.findByRole("heading", { name: "Página simulada: detalle empresarial" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Inicia sesión para ver los detalles")).not.toBeInTheDocument();
   });
 });

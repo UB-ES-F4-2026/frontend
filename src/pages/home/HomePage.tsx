@@ -1,8 +1,11 @@
 import { buttonVariants } from "@heroui/react";
 import { NavLink } from "react-router";
 import cityDawn from "../../assets/city_dawn.jpg";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export default function HomePage() {
+  const { active_account: account, sessionChecked } = useAuthStore();
+
   return (
     <section className="relative isolate flex flex-1 flex-col overflow-hidden">
       <img src={cityDawn} className="absolute inset-0 -z-20 h-full w-full object-cover" />
@@ -24,12 +27,15 @@ export default function HomePage() {
           >
             Ver oportunidades
           </NavLink>
-          <NavLink
-            to="/register"
-            className={`${buttonVariants({ variant: "secondary", size: "lg" })} border border-warning bg-transparent text-warning hover:bg-warning/10`}     
-          >
-            Crear cuenta
-          </NavLink>
+          {/* Com a la capçalera: amb sessió iniciada no té sentit oferir el registre. */}
+          {sessionChecked && !account && (
+            <NavLink
+              to="/register"
+              className={`${buttonVariants({ variant: "secondary", size: "lg" })} border border-warning bg-transparent text-warning hover:bg-warning/10`}
+            >
+              Crear cuenta
+            </NavLink>
+          )}
         </div>
       </div>
     </section>

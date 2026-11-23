@@ -241,7 +241,7 @@ describe("3. Saldo insuficient", () => {
     await u.click(within(dialog).getByRole("button", { name: "Continuar" }));
 
     expect(within(dialog).getByText("No tienes saldo suficiente para esta aportación.")).toBeInTheDocument();
-    expect(within(dialog).getByRole("link", { name: "Ingresar fondos" })).toHaveAttribute("href", "/my-balance");
+    expect(within(dialog).getByRole("link", { name: "Ingresar fondos" })).toHaveAttribute("href", "/my-balance/deposit");
     expect(screen.queryByRole("dialog", { name: "Confirma tu aportación" })).not.toBeInTheDocument();
   });
 });
@@ -371,7 +371,7 @@ describe("7. L'oportunitat deixa d'admetre l'aportació", () => {
 
     const alert = await within(confirmation).findByRole("alert");
     expect(alert).toHaveTextContent("No tienes saldo suficiente para esta aportación.");
-    expect(within(alert).getByRole("link", { name: "Ingresar fondos" })).toHaveAttribute("href", "/my-balance");
+    expect(within(alert).getByRole("link", { name: "Ingresar fondos" })).toHaveAttribute("href", "/my-balance/deposit");
   });
 
   it("si l'oportunitat ja no és disponible (404), ho indica i no deixa tornar a confirmar", async () => {

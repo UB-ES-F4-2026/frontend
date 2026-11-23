@@ -1,14 +1,23 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, fintechGet } from "../src/service/api";
-import { BALANCE_ERROR, useWalletStore, type WalletBalance } from "../src/store/useWalletStore";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError, fintechGet, fintechPost } from "../src/service/api";
+import {
+  BALANCE_ERROR,
+  DEPOSIT_POLL_ATTEMPTS,
+  DEPOSIT_POLL_INTERVAL_MS,
+  DEPOSIT_UNAVAILABLE,
+  useWalletStore,
+  type WalletBalance,
+} from "../src/store/useWalletStore";
 
 // Conservem ApiError real, però cap test arriba a la xarxa.
 vi.mock("../src/service/api", async (importOriginal) => ({
   ...await importOriginal<typeof import("../src/service/api")>(),
   fintechGet: vi.fn(),
+  fintechPost: vi.fn(),
 }));
 
 const get = vi.mocked(fintechGet);
+const post = vi.mocked(fintechPost);
 // Cos de BalanceRead tal com l'envia el backend.
 const wallet = (available_cents: unknown, committed_cents: unknown = 0): Record<string, unknown> =>
   ({ available_cents, committed_cents, currency: "eur" });
@@ -130,5 +139,153 @@ describe("useWalletStore després d'una aportació o inversió", () => {
     useWalletStore.setState({ status: "success", balance: current });
     expect(useWalletStore.getState().applyBalance(body)).toBeNull();
     expect(useWalletStore.getState()).toMatchObject({ status: "success", balance: current });
+  });
+});
+
+describe("useWalletStore: ingrés amb Stripe (US04.2)", () => {
+  const intent = { client_secret: "pi_123_secret_abc", payment_intent_id: "pi_123" };
+  // Temps total que l'store espera el webhook abans de rendir-se.
+  const FULL_WAIT = DEPOSIT_POLL_INTERVAL_MS * DEPOSIT_POLL_ATTEMPTS;
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // Prepara un ingrés de 100,00 € amb 250,00 € disponibles i 50,00 € compromesos (300,00 € en total).
+  const prepare = async (amountCents = 10000) => {
+    post.mockResolvedValueOnce(intent);
+    get.mockResolvedValueOnce(wallet(25000, 5000));
+    return useWalletStore.getState().createDepositIntent(amountCents);
+  };
+
+  it("crea el pagament amb l'import en cèntims i retorna el client_secret", async () => {
+    expect(await prepare()).toEqual(intent);
+    expect(post).toHaveBeenCalledExactlyOnceWith("/me/wallet/deposit-intent", { amount_cents: 10000 });
+    expect(get).toHaveBeenCalledExactlyOnceWith("/me/wallet", expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(useWalletStore.getState()).toMatchObject({ depositStatus: "success", depositDetails: "" });
+  });
+
+  it("no toca el saldo que es mostra en llegir-lo abans de pagar", async () => {
+    await prepare();
+    expect(useWalletStore.getState()).toMatchObject({ status: "idle", balance: null });
+  });
+
+  it("evita crear dos pagaments amb un doble clic", async () => {
+    let resolve!: (value: unknown) => void;
+    post.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    get.mockResolvedValue(wallet(0, 0));
+    const first = useWalletStore.getState().createDepositIntent(10000);
+    expect(useWalletStore.getState().depositStatus).toBe("loading");
+    expect(await useWalletStore.getState().createDepositIntent(10000)).toBeNull();
+    resolve(intent);
+    expect(await first).toEqual(intent);
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["401 (SessionManager porta al login)", new ApiError("Invalid or missing session", 401, null), ""],
+    ["422", new ApiError("HTTP Error 422", 422, { detail: [] }), "El importe no es válido. Revísalo e inténtalo de nuevo."],
+    ["503 (Stripe sense configurar)", new ApiError("Stripe is not configured", 503, null), DEPOSIT_UNAVAILABLE],
+    ["400 (Stripe ha fallat)", new ApiError("Stripe could not create the payment intent", 400, null), "No se ha podido preparar el pago. Inténtalo de nuevo."],
+    ["500", new ApiError("Server error", 500, null), "No se ha podido preparar el pago. Inténtalo de nuevo."],
+    ["de xarxa", new TypeError("Failed to fetch"), "No se ha podido preparar el pago. Inténtalo de nuevo."],
+  ])("tradueix un error %s sense mostrar detalls interns", async (_label, error, message) => {
+    post.mockRejectedValueOnce(error);
+    get.mockResolvedValue(wallet(0, 0));
+    expect(await useWalletStore.getState().createDepositIntent(10000)).toBeNull();
+    expect(useWalletStore.getState()).toMatchObject({ depositStatus: "error", depositDetails: message });
+  });
+
+  it("una resposta sense client_secret és un error", async () => {
+    post.mockResolvedValueOnce({ payment_intent_id: "pi_123" });
+    get.mockResolvedValue(wallet(0, 0));
+    expect(await useWalletStore.getState().createDepositIntent(10000)).toBeNull();
+    expect(useWalletStore.getState()).toMatchObject({
+      depositStatus: "error",
+      depositDetails: "No se ha podido preparar el pago. Inténtalo de nuevo.",
+    });
+  });
+
+  it("després de pagar espera que el saldo inclogui l'ingrés i ho anuncia a «Mi saldo»", async () => {
+    await prepare();
+    vi.useFakeTimers();
+    // El primer cop el webhook encara no ha arribat; el segon, sí.
+    get.mockResolvedValueOnce(wallet(25000, 5000)).mockResolvedValueOnce(wallet(35000, 5000));
+    const done = useWalletStore.getState().completeDeposit();
+    await vi.advanceTimersByTimeAsync(DEPOSIT_POLL_INTERVAL_MS * 2);
+    expect(await done).toEqual({ amount_cents: 10000, reflected: true });
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(useWalletStore.getState().lastDeposit).toEqual({ amount_cents: 10000, reflected: true });
+  });
+
+  it("compara el saldo total: una aportació feta mentrestant no amaga l'ingrés", async () => {
+    await prepare();
+    vi.useFakeTimers();
+    // +100,00 € de l'ingrés i 30,00 € passats del disponible al compromès: total 400,00 €.
+    get.mockResolvedValueOnce(wallet(32000, 8000));
+    const done = useWalletStore.getState().completeDeposit();
+    await vi.advanceTimersByTimeAsync(DEPOSIT_POLL_INTERVAL_MS);
+    expect(await done).toEqual({ amount_cents: 10000, reflected: true });
+  });
+
+  it("si el saldo no canvia en deu segons, ho anuncia igualment com a pendent de reflectir", async () => {
+    await prepare();
+    vi.useFakeTimers();
+    get.mockResolvedValue(wallet(25000, 5000));
+    const done = useWalletStore.getState().completeDeposit();
+    await vi.advanceTimersByTimeAsync(FULL_WAIT);
+    expect(await done).toEqual({ amount_cents: 10000, reflected: false });
+    expect(get).toHaveBeenCalledTimes(1 + DEPOSIT_POLL_ATTEMPTS);
+  });
+
+  it("si no s'ha pogut llegir el saldo abans de pagar, no espera", async () => {
+    post.mockResolvedValueOnce(intent);
+    get.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    expect(await useWalletStore.getState().createDepositIntent(10000)).toEqual(intent);
+    expect(await useWalletStore.getState().completeDeposit()).toEqual({ amount_cents: 10000, reflected: false });
+    expect(get).toHaveBeenCalledOnce();
+  });
+
+  it("una consulta fallida durant l'espera es torna a provar", async () => {
+    await prepare();
+    vi.useFakeTimers();
+    get.mockRejectedValueOnce(new TypeError("Failed to fetch")).mockResolvedValueOnce(wallet(35000, 5000));
+    const done = useWalletStore.getState().completeDeposit();
+    await vi.advanceTimersByTimeAsync(DEPOSIT_POLL_INTERVAL_MS * 2);
+    expect(await done).toEqual({ amount_cents: 10000, reflected: true });
+  });
+
+  it("sortir de la pàgina mentre s'espera atura l'espera sense anunciar res", async () => {
+    await prepare();
+    vi.useFakeTimers();
+    get.mockResolvedValue(wallet(25000, 5000));
+    const done = useWalletStore.getState().completeDeposit();
+    await vi.advanceTimersByTimeAsync(DEPOSIT_POLL_INTERVAL_MS);
+    useWalletStore.getState().resetDeposit();
+    await vi.advanceTimersByTimeAsync(FULL_WAIT);
+    expect(await done).toBeNull();
+    expect(useWalletStore.getState().lastDeposit).toBeNull();
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it("sense cap pagament preparat no hi ha res a completar", async () => {
+    expect(await useWalletStore.getState().completeDeposit()).toBeNull();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it("resetDeposit esborra l'error però conserva l'ingrés que ha d'anunciar «Mi saldo»", () => {
+    useWalletStore.setState({ depositStatus: "error", depositDetails: "Error", lastDeposit: { amount_cents: 100, reflected: true } });
+    useWalletStore.getState().resetDeposit();
+    expect(useWalletStore.getState()).toMatchObject({
+      depositStatus: "idle",
+      depositDetails: "",
+      lastDeposit: { amount_cents: 100, reflected: true },
+    });
+  });
+
+  it("reset (sortir de «Mi saldo» o tancar la sessió) esborra l'avís de l'ingrés", () => {
+    useWalletStore.setState({ lastDeposit: { amount_cents: 100, reflected: true } });
+    useWalletStore.getState().reset();
+    expect(useWalletStore.getState().lastDeposit).toBeNull();
   });
 });
