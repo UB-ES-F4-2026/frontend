@@ -10,7 +10,7 @@ Implementes pàgines, components, stores i crides a l'API seguint [product.md](p
 4. **Implementa** seguint les convencions i `product.md`.
 5. **Escriu o amplia tests** a `tests/` per a cada criteri: comportament visible, estats de càrrega, error i buit.
 6. **Valida** amb les ordres de la secció final, i comprova la pantalla al navegador en amplada mòbil i d'escriptori.
-7. **Entrega**: PR cap a `main` amb `Closes #n`, captures de mòbil i escriptori si hi ha canvi visual, i les decisions preses sobre criteris ambigus.
+7. **Entrega**: PR cap a la branca `feat/…` corresponent amb `Closes #n`, captures de mòbil i escriptori si hi ha canvi visual, i les decisions preses sobre criteris ambigus.
 
 ## Mapa del codi
 
@@ -63,13 +63,14 @@ Des de `frontend`, amb Node:
 
 ```bash
 npm ci
+npm run lint
+npm run typecheck
 npm test
 npm run build
-npx tsc -p tests/tsconfig.json
 ```
 
 Sense Node, des de `../backend`: `docker compose build frontend` i `docker compose run --rm --no-deps frontend npm test`.
 
 Comprovació manual amb tot l'entorn: des de `../backend`, `docker compose up --build --watch` i obre `http://localhost:5173` a amplada mòbil i d'escriptori.
 
-Fet vol dir: les quatre ordres acaben sense errors, cada criteri de la issue té test o comprovació descrita, i la pantalla funciona a mòbil i escriptori amb els estats de càrrega, error i buit visibles.
+Fet vol dir: les ordres acaben sense errors, cada criteri de la issue té test o comprovació descrita, i la pantalla funciona a mòbil i escriptori amb els estats de càrrega, error i buit visibles.

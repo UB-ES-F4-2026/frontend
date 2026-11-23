@@ -1,21 +1,9 @@
-import { useEffect } from "react";
-import { Button, Card, Spinner } from "@heroui/react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router";
+import { Alert, Button, buttonVariants, Card, Spinner } from "@heroui/react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWalletStore } from "../../store/useWalletStore";
-
-// `useGrouping: "always"`: l'es-ES per defecte no separa els milers de quatre xifres («1234,56 €»).
-const eur = new Intl.NumberFormat("es-ES", {
-  style: "currency",
-  currency: "EUR",
-  useGrouping: "always",
-});
-
-// Partim dels cèntims enters i passem a Intl un decimal exacte: cap divisió en coma flotant.
-const formatEuroCents = (cents: number) => {
-  const euros = Math.trunc(cents / 100);
-  const rest = String(cents % 100).padStart(2, "0");
-  return eur.format(`${euros}.${rest}` as `${number}`);
-};
+import { formatEuroCents } from "../../service/money";
 
 const WalletIcon = () => (
   <svg
@@ -41,6 +29,9 @@ export default function MyWalletPage() {
   const balance = useWalletStore((state) => state.balance);
   const fetchBalance = useWalletStore((state) => state.fetchBalance);
   const reset = useWalletStore((state) => state.reset);
+  // Ingrés o retirada que s'acaba de fer. Es llegeixen en entrar perquè sortir (reset) els esborra del store.
+  const [deposit] = useState(() => useWalletStore.getState().lastDeposit);
+  const [withdrawal] = useState(() => useWalletStore.getState().lastWithdrawal);
 
   // Cada entrada (o canvi de client) fa una lectura nova; en sortir es descarta el saldo.
   useEffect(() => {
@@ -50,6 +41,9 @@ export default function MyWalletPage() {
   }, [accountId, fetchBalance, reset]);
 
   const isLoading = status === "idle" || status === "loading";
+  // Només es pot retirar el saldo disponible: mentre no se sap, el botó també queda desactivat.
+  const availableCents = status === "success" && balance ? balance.available_cents : null;
+  const withoutBalance = availableCents === 0;
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
@@ -62,6 +56,42 @@ export default function MyWalletPage() {
             Entorno de simulación. Este saldo no representa dinero real.
           </p>
         </div>
+
+        {deposit && (
+          <div role="status" className="flex flex-col items-start gap-3">
+            <Alert status="success">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>Ingreso realizado</Alert.Title>
+                <Alert.Description>
+                  {deposit.reflected
+                    ? `Se han añadido ${formatEuroCents(deposit.amount_cents)} a tu saldo disponible.`
+                    : `Tu pago de ${formatEuroCents(deposit.amount_cents)} se ha completado. El saldo puede tardar unos instantes en actualizarse.`}
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
+            {/* El backend acredita l'ingrés quan rep l'avís de Stripe: pot arribar més tard. */}
+            {!deposit.reflected && (
+              <Button variant="secondary" isDisabled={isLoading} onPress={() => void fetchBalance()}>
+                Actualizar saldo
+              </Button>
+            )}
+          </div>
+        )}
+
+        {withdrawal && (
+          <div role="status">
+            <Alert status="success">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>Retirada realizada</Alert.Title>
+                <Alert.Description>
+                  Se han retirado {formatEuroCents(withdrawal.amount_cents)} de tu saldo disponible.
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
+          </div>
+        )}
 
         <section aria-labelledby="balance-label">
           <Card className="gap-0 overflow-hidden p-0 shadow-sm">
@@ -95,7 +125,7 @@ export default function MyWalletPage() {
 
                 {status === "success" && balance && (
                   <>
-                    <p className="text-[clamp(1.75rem,9vw,3rem)] font-semibold leading-tight tabular-nums break-words">
+                    <p className="text-[clamp(1.75rem,9vw,3rem)] font-semibold leading-tight tabular-nums wrap-break-word">
                       {formatEuroCents(balance.available_cents)}
                     </p>
                     {balance.available_cents === 0 && (
@@ -104,12 +134,55 @@ export default function MyWalletPage() {
                         Tu saldo disponible es de {formatEuroCents(0)}
                       </p>
                     )}
+                    {/* El compromès es mostra a part: està reservat i no es pot retirar. */}
+                    <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-brand-foreground/20 pt-5">
+                      <div className="min-w-0">
+                        <dt className="text-sm text-brand-foreground/80">Saldo comprometido</dt>
+                        <dd className="text-xl font-semibold tabular-nums wrap-break-word">
+                          {formatEuroCents(balance.committed_cents)}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-sm text-brand-foreground/80">Total</dt>
+                        <dd className="text-xl font-semibold tabular-nums wrap-break-word">
+                          {formatEuroCents(BigInt(balance.available_cents) + BigInt(balance.committed_cents))}
+                        </dd>
+                      </div>
+                    </dl>
                   </>
                 )}
               </div>
             </div>
           </Card>
         </section>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            to="/my-balance/deposit"
+            className={`${buttonVariants({ variant: "primary", size: "lg" })} bg-warning text-warning-foreground hover:bg-warning/90`}
+          >
+            Ingresar fondos
+          </Link>
+          {availableCents !== null && availableCents > 0 ? (
+            <Link to="/my-balance/withdraw" className={buttonVariants({ variant: "outline", size: "lg" })}>
+              Retirar fondos
+            </Link>
+          ) : (
+            <Button
+              variant="outline"
+              size="lg"
+              isDisabled
+              aria-describedby={withoutBalance ? "withdraw-unavailable" : undefined}
+            >
+              Retirar fondos
+            </Button>
+          )}
+          {withoutBalance && (
+            <p id="withdraw-unavailable" className="text-sm text-muted">
+              No tienes saldo disponible para retirar.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

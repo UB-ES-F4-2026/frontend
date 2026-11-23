@@ -22,7 +22,7 @@ Per invocar-ne un: «Actua com a Frontend. Implementa la issue #23». Si la peti
 
 - Documentació, issues, PRs i comentaris de codi en català. Respon en l'idioma en què t'escriuen.
 - Les issues són a GitHub: `gh issue view <n> -R UB-ES-F4-2026/frontend`. Una tasca comença llegint la seva issue i els criteris d'acceptació; el PR l'enllaça amb `Closes #n`. Una issue que afecta també el backend es referencia amb el nom complet (`UB-ES-F4-2026/backend#32`).
-- Una branca per issue, `task/<n>-<descripció>`, amb PR cap a `main`. La CI de `.github/workflows/ci.yml` ha de passar abans de fusionar.
+- Una branca per issue, `task/<n>-<descripció>`, amb PR cap a la branca `feat/…` de la història o del requisit. Les `feat` es fusionen a `dev`; a cada release es crea `release/x.y` des de `dev` i es fusiona a `main`. La CI de `.github/workflows/ci.yml` ha de passar abans de fusionar.
 - Les crides a l'API usen rutes relatives `/api/...` a través de `src/service/api.ts`; el proxy de Vite i Caddy les reenvien al backend. Cap URL absoluta del backend al codi.
 - Les variables `VITE_*` són visibles al navegador: només hi va configuració pública.
 - `package-lock.json` es conserva i s'actualitza juntament amb `package.json` quan canvien les dependències; la imatge usa `npm ci`.

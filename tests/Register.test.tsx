@@ -55,7 +55,7 @@ async function fillAccess(user: ReturnType<typeof userEvent.setup>, password = "
 }
 
 async function submit(password: string) {
-  const user = userEvent.setup();
+  const user = userEvent.setup({ delay: null });
   await goToAccess(user);
   await fillAccess(user, password);
   await user.click(terms());
@@ -87,7 +87,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it("permet corregir un telèfon invàlid i continuar sense duplicar el prefix", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await fillPersonalData(user);
     const phone = screen.getByLabelText("Número", { exact: true });
     await user.clear(phone);
@@ -106,7 +106,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it("no avança amb els camps obligatoris buits", async () => {
     renderRegister();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Continuar" }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: "Continuar" }));
     for (const label of ["Nombre", "Apellidos", "Correo electrónico", "Número"]) {
       expect(screen.getByLabelText(label, { exact: true })).toBeInvalid();
     }
@@ -116,7 +116,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it.each(["Nombre", "Apellidos"])("requereix %s encara que la resta de dades estiguin plenes", async (label) => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await fillPersonalData(user);
     await user.clear(screen.getByLabelText(label, { exact: true }));
     await user.click(screen.getByRole("button", { name: "Continuar" }));
@@ -127,7 +127,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it("conserva el país i el número separats en canviar de pas", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await fillPersonalData(user);
     await user.click(screen.getByRole("button", { name: /País y prefijo/ }));
     await user.click(screen.getByRole("option", { name: "Francia (+33)" }));
@@ -141,7 +141,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it("distingeix països que comparteixen prefix", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     for (const country of ["Canadá (+1)", "Estados Unidos (+1)"]) {
       await user.click(screen.getByRole("button", { name: /País y prefijo/ }));
       await user.click(screen.getByRole("option", { name: country }));
@@ -152,7 +152,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it("no avança amb un correu de format incorrecte", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await fillPersonalData(user, "correu-invalid");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByLabelText("Correo electrónico")).toBeInvalid();
@@ -163,7 +163,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it("avança sense registrar, actualitza el pas i mostra contrasenyes ocultes i caselles desmarcades", async () => {
     renderRegister();
-    await goToAccess(userEvent.setup());
+    await goToAccess(userEvent.setup({ delay: null }));
     expect(state.register).not.toHaveBeenCalled();
     expect(screen.getByText("Datos de acceso").closest("li")).toHaveAttribute("aria-current", "step");
     expect(screen.getByText("Datos personales").closest("li")).not.toHaveAttribute("aria-current");
@@ -181,7 +181,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it("conserva tots els camps i les caselles en anar enrere i avançar, sense registrar", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await fillAccess(user);
     await user.click(terms());
@@ -211,7 +211,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     ["Consultar privacidad", "/legal/politica-de-privacidad"],
   ])("%s obre el document en una altra pestanya i conserva el formulari", async (label, href) => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await fillAccess(user);
     const link = screen.getByRole("link", { name: `${label} (se abre en una pestaña nueva)` });
@@ -236,7 +236,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
     ["Confirma la contraseña", "confirmación de contraseña", "Contraseña"],
   ])("mostra i oculta %s sense alterar el valor ni l’altre camp", async (label, action, other) => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await fillAccess(user);
     await user.click(screen.getByRole("button", { name: `Mostrar ${action}` }));
@@ -251,7 +251,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it("permet arribar a l’ull amb Tab i activar-lo amb el teclat", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await user.tab();
     expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveFocus();
@@ -264,7 +264,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it("permet marcar les confirmacions amb el teclat sense enviar el formulari", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await user.click(screen.getByLabelText("Confirma la contraseña"));
     await user.tab();
@@ -284,7 +284,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it("no envia si falta la confirmació de contrasenya", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await user.type(screen.getByLabelText("Contraseña", { exact: true }), "password123");
     await user.click(terms());
@@ -297,7 +297,7 @@ describe("Register: interfície de dues pantalles (tasca #25)", () => {
 
   it.each(["condicions", "privacitat"])("no envia si falta acceptar %s", async (missing) => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await fillAccess(user);
     await user.click(missing === "condicions" ? privacy() : terms());
@@ -336,7 +336,7 @@ describe("Register: comportament existent amb el store simulat", () => {
 
   it("no envia contrasenyes amb confirmació diferent", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await fillAccess(user, "password123", "password456");
     await user.click(terms());
@@ -349,7 +349,7 @@ describe("Register: comportament existent amb el store simulat", () => {
 
   it("bloqueja camps, caselles, ulls i botons mentre espera resposta", async () => {
     const view = renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await fillAccess(user);
     state.registrationStatus = "loading";
@@ -379,7 +379,7 @@ describe("Register: comportament existent amb el store simulat", () => {
     expect(screen.getByLabelText("Confirma la contraseña")).toHaveValue("password123");
     expect(terms()).toBeChecked();
     expect(privacy()).toBeChecked();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Volver atrás" }));
+    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: "Volver atrás" }));
     expect(screen.getByLabelText("Correo electrónico")).toHaveValue(personalData.email);
     expect(screen.getByLabelText("Nombre", { exact: true })).toHaveValue(personalData.firstName);
     expect(screen.getByLabelText("Apellidos")).toHaveValue(personalData.lastName);
@@ -417,7 +417,7 @@ describe("Register: comportament existent amb el store simulat", () => {
 describe("Register: validacions de la primera pantalla (#30)", () => {
   it("mostra errors independents, enfoca el primer camp i permet corregir sense perdre dades", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await fillPersonalData(user);
     for (const label of ["Nombre", "Apellidos"]) {
       await user.clear(screen.getByLabelText(label, { exact: true }));
@@ -449,7 +449,7 @@ describe("Register: validacions de la primera pantalla (#30)", () => {
 
   it("bloqueja un telèfon curt, mostra l’error associat i admet corregir-lo amb el prefix complet", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await fillPersonalData(user);
     const number = screen.getByLabelText("Número", { exact: true });
     await user.clear(number);
@@ -469,7 +469,7 @@ describe("Register: validacions de la primera pantalla (#30)", () => {
 
   it("revalida un número enganxat amb el país seleccionat sense esborrar-lo", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await fillPersonalData(user);
     await user.clear(screen.getByLabelText("Número", { exact: true }));
     await user.type(screen.getByLabelText("Número", { exact: true }), "+33 612 345 678");
@@ -488,7 +488,7 @@ describe("Register: validacions de la primera pantalla (#30)", () => {
 describe("Register: errors recuperables de la segona pantalla (#30)", () => {
   it("mostra tots els errors obligatoris i enfoca la contrasenya sense enviar dades", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
     expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveAccessibleDescription(/Introduce una contraseña/);
@@ -501,7 +501,7 @@ describe("Register: errors recuperables de la segona pantalla (#30)", () => {
 
   it("exige coincidència exacta, permet corregir i conserva la contrasenya amb els espais", async () => {
     renderRegister();
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     await goToAccess(user);
     await fillAccess(user, " Password1 ", "Password1");
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
@@ -516,5 +516,153 @@ describe("Register: errors recuperables de la segona pantalla (#30)", () => {
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
     expect(screen.queryByText("Las contraseñas no coinciden.")).not.toBeInTheDocument();
     expect(state.register).toHaveBeenCalledExactlyOnceWith({ first_name: personalData.firstName, last_name: personalData.lastName, phone: "+34612345678", email: personalData.email, password: " Password1 " });
+  });
+});
+
+describe("Register: entitat promotora (US01.9)", () => {
+  const promoterCheckbox = () => screen.getByRole("checkbox", { name: /Registrarme como entidad promotora/ });
+  const legalName = () => screen.getByLabelText("Razón social");
+  const foundingYear = () => screen.getByLabelText(/Año de fundación/);
+  const location = () => screen.getByLabelText(/Ubicación/);
+  const entityFields = () => [/Razón social/, /Año de fundación/, /Ubicación/].map((label) => screen.queryByLabelText(label));
+
+  async function completeAccess(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await fillAccess(user);
+    await user.click(terms());
+    await user.click(privacy());
+    await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
+  }
+
+  it("1. mostra la casella desmarcada per defecte, amb la seva explicació, i sense els camps de l'entitat", () => {
+    renderRegister();
+    expect(promoterCheckbox()).not.toBeChecked();
+    expect(promoterCheckbox()).toHaveAccessibleDescription("Necesario para publicar oportunidades.");
+    expect(entityFields()).toEqual([null, null, null]);
+    expect(screen.queryByRole("group", { name: "Datos de la entidad" })).not.toBeInTheDocument();
+  });
+
+  it("2. en marcar-la mostra els camps sota la casella: raó social obligatòria, any i ubicació opcionals", async () => {
+    renderRegister();
+    const user = userEvent.setup({ delay: null });
+    await user.click(promoterCheckbox());
+    expect(promoterCheckbox()).toBeChecked();
+    const group = screen.getByRole("group", { name: "Datos de la entidad" });
+    expect(promoterCheckbox().compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(legalName()).toBeRequired();
+    expect(foundingYear()).toHaveAccessibleName("Año de fundación (opcional)");
+    expect(foundingYear()).not.toBeRequired();
+    expect(foundingYear()).toHaveAccessibleDescription("Lo usamos para mostrar tus años de experiencia.");
+    expect(location()).toHaveAccessibleName("Ubicación (opcional)");
+    expect(location()).toHaveAttribute("placeholder", "Ciudad, provincia, país");
+    // La casella també es pot desmarcar amb el teclat.
+    promoterCheckbox().focus();
+    await user.keyboard(" ");
+    expect(entityFields()).toEqual([null, null, null]);
+  });
+
+  it("3. en desmarcar-la amaga els camps, oblida els errors i no envia les dades de l'entitat", async () => {
+    renderRegister();
+    const user = userEvent.setup({ delay: null });
+    await fillPersonalData(user);
+    await user.click(promoterCheckbox());
+    await user.type(foundingYear(), "20155");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByText("Introduce la razón social.")).toBeInTheDocument();
+
+    await user.click(promoterCheckbox());
+    expect(entityFields()).toEqual([null, null, null]);
+    await completeAccess(user);
+
+    expect(state.register).toHaveBeenCalledOnce();
+    expect(state.register.mock.calls[0][0]).not.toHaveProperty("promoting_entity");
+  });
+
+  it.each([
+    ["la raó social buida", "", "", "Razón social", "Introduce la razón social."],
+    ["la raó social només amb espais", "   ", "", "Razón social", "Introduce la razón social."],
+    ["un any de dues xifres", "Promociones Ejemplo SL", "15", /Año de fundación/, "Introduce un año de cuatro cifras, por ejemplo 2015."],
+    ["un any amb lletres", "Promociones Ejemplo SL", "20a5", /Año de fundación/, "Introduce un año de cuatro cifras, por ejemplo 2015."],
+    ["un any futur", "Promociones Ejemplo SL", String(new Date().getFullYear() + 1), /Año de fundación/,
+      `El año de fundación no puede ser posterior a ${new Date().getFullYear()}.`],
+  ])("4. amb %s no passa al pas 2 i mostra l'error sota el camp", async (_case, name, year, label, message) => {
+    renderRegister();
+    const user = userEvent.setup({ delay: null });
+    await fillPersonalData(user);
+    await user.click(promoterCheckbox());
+    if (name) await user.type(legalName(), name);
+    if (year) await user.type(foundingYear(), year);
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+    const field = screen.getByLabelText(label);
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(field).toHaveAccessibleDescription(expect.stringContaining(message));
+    expect(field).toHaveFocus();
+    expect(screen.queryByLabelText("Contraseña", { exact: true })).not.toBeInTheDocument();
+    expect(state.register).not.toHaveBeenCalled();
+
+    // Corregir el camp esborra el seu error.
+    await user.type(field, "1");
+    expect(field).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("4. si també falten dades personals, enfoca primer el camp personal i mostra tots els errors", async () => {
+    renderRegister();
+    const user = userEvent.setup({ delay: null });
+    await user.click(promoterCheckbox());
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByLabelText("Nombre", { exact: true })).toHaveFocus();
+    expect(screen.getByText("Introduce la razón social.")).toBeInTheDocument();
+  });
+
+  it("5. envia el compte i l'entitat junts, normalitzats, i redirigeix al login", async () => {
+    state.register.mockResolvedValue({ id: 1, email: personalData.email, created_at: "2026-11-17T10:00:00Z" });
+    renderRegister();
+    const user = userEvent.setup({ delay: null });
+    await fillPersonalData(user);
+    await user.click(promoterCheckbox());
+    await user.type(legalName(), "  Promociones Ejemplo SL  ");
+    await user.type(foundingYear(), " 2015 ");
+    await completeAccess(user);
+
+    expect(state.register).toHaveBeenCalledExactlyOnceWith({
+      first_name: personalData.firstName, last_name: personalData.lastName, email: personalData.email,
+      phone: "+34612345678", password: "password123",
+      promoting_entity: { legal_name: "Promociones Ejemplo SL", founding_year: 2015, location: null },
+    });
+    expect(await screen.findByRole("heading", { name: "Inicio de sesión simulado" })).toBeInTheDocument();
+  });
+
+  it("5. conserva la casella i les dades de l'entitat en tornar enrere", async () => {
+    renderRegister();
+    const user = userEvent.setup({ delay: null });
+    await fillPersonalData(user);
+    await user.click(promoterCheckbox());
+    await user.type(legalName(), "Promociones Ejemplo SL");
+    await user.type(location(), "Barcelona");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    await user.click(screen.getByRole("button", { name: "Volver atrás" }));
+
+    expect(promoterCheckbox()).toBeChecked();
+    expect(legalName()).toHaveValue("Promociones Ejemplo SL");
+    expect(foundingYear()).toHaveValue("");
+    expect(location()).toHaveValue("Barcelona");
+  });
+
+  it("bloqueja la casella mentre s'envia el registre", () => {
+    state.registrationStatus = "loading";
+    renderRegister();
+    expect(promoterCheckbox()).toBeDisabled();
+  });
+
+  it("6. el registre normal envia les mateixes dades que abans, sense entitat", async () => {
+    renderRegister();
+    const user = userEvent.setup({ delay: null });
+    await fillPersonalData(user);
+    await completeAccess(user);
+    expect(state.register).toHaveBeenCalledExactlyOnceWith({
+      first_name: personalData.firstName, last_name: personalData.lastName, email: personalData.email,
+      phone: "+34612345678", password: "password123",
+    });
   });
 });

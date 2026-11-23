@@ -11,6 +11,8 @@ export const registerRealEstateInvestmentFlow = () => {
 
       let equityTitle = "";
       let realEstateTitle = "";
+      let realEstateId = 0;
+      let searchTerm = "";
 
       await test.step("1. Acceder a /opportunities sin sesión y capturar el catálogo", async () => {
         const opportunitiesResponsePromise = page.waitForResponse(
@@ -48,6 +50,8 @@ export const registerRealEstateInvestmentFlow = () => {
 
         equityTitle = equityOpp!.title;
         realEstateTitle = realEstateOpp!.title;
+        realEstateId = realEstateOpp!.id;
+        searchTerm = realEstateTitle.split(/\s+/)[0];
       });
 
       await test.step("2. Pulsar en una oportunidad empresarial sin sesión y abrir el modal", async () => {
@@ -81,57 +85,59 @@ export const registerRealEstateInvestmentFlow = () => {
         await expect(page).toHaveURL(/\/$/);
       });
 
-      await test.step("4. Navegar a oportunidades y buscar una vivienda por nombre", async () => {
-        // Hacemos clic en el enlace de la cabecera
+      await test.step("4. Buscar una oportunidad inmobiliaria del catálogo", async () => {
         const nav = page.getByRole("navigation", { name: "Navegación principal" });
         await nav.getByRole("link", { name: "Oportunidades" }).click();
         await expect(page).toHaveURL(/\/opportunities$/);
 
-        // Localizamos la caja de búsqueda por su placeholder
         const searchInput = page.getByPlaceholder("Buscar oportunidades...");
         await expect(searchInput).toBeVisible();
 
-        // Simulamos un click seguido de escritura humana (tecla a tecla) y Enter
-        await searchInput.click();
-        await searchInput.pressSequentially("vivienda", { delay: 60 });
+        const searchResponse = await page.request.get("/api/opportunities", {
+          params: { name: searchTerm },
+        });
+        expect(searchResponse.ok()).toBeTruthy();
+        const matchingOpportunities = (await searchResponse.json()) as Opportunity[];
+        expect(matchingOpportunities.map((opportunity) => opportunity.id)).toContain(
+          realEstateId
+        );
+
+        await searchInput.fill(searchTerm);
         await searchInput.press("Enter");
 
-        // Verificamos que el contador de oportunidades filtradas se actualice a 1
-        await expect(page.getByText("1 oportunidades encontradas")).toBeVisible();
-
-        const button = await page.locator(`[aria-label="Close"]`).first();
-        await button.click();
-
-        await expect(page.getByText("6 oportunidades encontradas")).toBeVisible();
-
-        await searchInput.click();
-        await searchInput.pressSequentially("vivienda", { delay: 60 });
-        await searchInput.press("Enter");
+        await expect(
+          page.getByText(
+            `${matchingOpportunities.length} oportunidades encontradas`,
+            { exact: true }
+          )
+        ).toBeVisible();
+        await expect(page.getByText(realEstateTitle, { exact: true })).toBeVisible();
       });
 
       await test.step("5. Acceder a la oportunidad de tipo inmobiliario filtrada", async () => {
-        // Hacemos clic en la única tarjeta que queda visible tras el filtro
-        await page.getByText("Promoción de Viviendas Passivhaus").first().click();
+        await page.getByText(realEstateTitle, { exact: true }).first().click();
 
-        // Validamos que hemos navegado a su vista de detalle
-        await expect(page).toHaveURL(/\/opportunities\/real-estate\/\d+$/);
+        await expect(page).toHaveURL(
+          new RegExp(`/opportunities/real-estate/${realEstateId}$`)
+        );
         await expect(
-          page.getByRole("heading", { level: 1, name: "Promoción de Viviendas Passivhaus" })
+          page.getByRole("heading", { level: 1, name: realEstateTitle })
         ).toBeVisible();
       });
 
-      await test.step("6. Pulsar en 'Quiero invertir' y comprobar que se abre el alert", async () => {
+      await test.step("6. Pulsar en 'Quiero invertir', comprobar el diálogo de aportación y cancelarlo", async () => {
         const investButton = page.getByRole("button", { name: "Quiero invertir" });
         await expect(investButton).toBeEnabled();
-
-        page.once("dialog", async (dialog) => {
-          expect(dialog.message()).toBe(
-            "Funcionalidad de inversión disponible en futuras iteraciones."
-          );
-          await dialog.accept();
-        });
-
         await investButton.click();
+
+        // L'usuari és nou: el diàleg s'obre amb el seu saldo, però no es compromet res.
+        const dialog = page.getByRole("dialog", { name: "Comprometer aportación" });
+        await expect(dialog).toBeVisible();
+        await expect(dialog.getByText(realEstateTitle, { exact: true })).toBeVisible();
+        await expect(dialog.getByRole("textbox", { name: /Importe de la aportación/ })).toBeVisible();
+
+        await dialog.getByRole("button", { name: "Cancelar" }).click();
+        await expect(dialog).toBeHidden();
       });
 
       await test.step("7. Interactuar con el mapa de ubicación aproximada", async () => {

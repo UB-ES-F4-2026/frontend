@@ -1,5 +1,10 @@
 import { create } from "zustand";
-import { fintechGet, ApiError, RequestStatus } from "../service/api";
+import { fintechGet, fintechPost, ApiError, RequestStatus } from "../service/api";
+import {
+  INSUFFICIENT_FUNDS_MESSAGE,
+  INVALID_AMOUNT_MESSAGE,
+} from "../pages/opportunities/dialogs/contributionAmount";
+import { useWalletStore } from "./useWalletStore";
 
 export type OpportunityType = "real_estate" | "equity";
 
@@ -53,11 +58,105 @@ export interface RealEstate {
 }
 
 export interface RealEstateOpportunityGetResponse extends Opportunity {
-  minimum_contribution_cents: number;
+  // null: l'oportunitat no té aportació mínima (backend: OpportunityDetailRead).
+  minimum_contribution_cents: number | null;
   promoter: Promoter;
   real_estate: RealEstate;
-  server_time: string; 
+  server_time: string;
 }
+
+// Valors dels enums del backend (app/models/business_opportunity.py).
+export type BusinessSector =
+  | "fintech" | "industry" | "saas" | "health" | "biotech" | "cleantech" | "agritech"
+  | "foodtech" | "d2c" | "education" | "media" | "tourism" | "logistic" | "ai" | "other";
+
+export type BusinessPhase = "pre_seed" | "seed" | "early" | "growth" | "late";
+
+export interface Business {
+  sector: BusinessSector;
+  phase: BusinessPhase;
+  pre_investment_valuation_cents: number;
+  // Percentatge ja multiplicat per 100. El backend l'envia com a Decimal: arriba com a text.
+  equity_offered: number | string;
+}
+
+// Resposta de GET /api/opportunities/{id} per a una oportunitat empresarial
+// (backend: BusinessOpportunityDetailRead). No porta galeria pròpia.
+export interface BusinessOpportunityGetResponse {
+  id: number;
+  type: OpportunityType;
+  status: string;
+  title: string;
+  description: string;
+  location: string;
+  cover_image_url: string | null;
+  target_amount_cents: number;
+  committed_cents: number;
+  minimum_contribution_cents: number | null;
+  date_published: string;
+  deadline: string;
+  promoter: Promoter;
+  business: Business;
+  server_time: string;
+}
+
+// Resposta de POST /api/opportunities/{id}/commitments (backend: CommitmentResultRead).
+export interface CommitmentResult {
+  commitment: { id: number; opportunity_id: number; amount_cents: number; created_at: string };
+  opportunity: { id: number; target_amount_cents: number; committed_cents: number };
+  wallet: unknown;
+}
+
+// Què ha passat en confirmar, perquè el diàleg sàpiga quines accions oferir.
+export type CommitmentErrorKind =
+  | "session_expired"
+  | "not_available"
+  | "below_minimum"
+  | "invalid_amount"
+  | "insufficient_funds"
+  | "not_accepted"
+  | "unexpected";
+
+// Contracte del backend (US03.1). Els dos 409 i els dos 422 només es distingeixen pel `detail`.
+export const COMMITMENT_ERRORS: Record<CommitmentErrorKind, string> = {
+  // SessionManager ja porta al login: el diàleg no mostra res.
+  session_expired: "",
+  not_available: "Esta oportunidad ya no está disponible.",
+  // El mínim ha canviat al backend; el diàleg només coneix l'anterior, per això no es mostra la xifra.
+  below_minimum: "El importe es inferior a la aportación mínima.",
+  invalid_amount: INVALID_AMOUNT_MESSAGE,
+  insufficient_funds: INSUFFICIENT_FUNDS_MESSAGE,
+  not_accepted: "Esta oportunidad ya no admite esta aportación.",
+  unexpected: "No se ha podido comprometer la aportación. Inténtalo de nuevo.",
+};
+
+export interface CommitmentOutcome {
+  amount_cents: number;
+  // Saldo disponible després de l'aportació; null si la resposta no el porta en un format vàlid.
+  available_cents: number | null;
+}
+
+const toCommitmentError = (error: unknown): CommitmentErrorKind => {
+  if (!(error instanceof ApiError)) return "unexpected";
+  switch (error.status) {
+    case 401:
+      return "session_expired";
+    case 404:
+      return "not_available";
+    case 409:
+      // «Insufficient funds»: el saldo ha canviat des de la validació del diàleg. Qualsevol altre
+      // 409: ja no està en finançament o no li queda prou capital pendent.
+      return error.message === "Insufficient funds" ? "insufficient_funds" : "not_accepted";
+    case 422:
+      // Text: el mínim ha canviat. Llista d'errors de FastAPI: l'import no té un format vàlid.
+      return error.message === "Amount below the minimum contribution" ? "below_minimum" : "invalid_amount";
+    default:
+      return "unexpected";
+  }
+};
+
+const isCents = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 
 const toErrorMessage = (error: unknown) => {
     if (error instanceof ApiError) return `${error.message} (HTTP ${error.status})`;
@@ -72,25 +171,39 @@ interface OpportunityState {
   status: RequestStatus;
   details: string;
   opportunities: Opportunity[];
-  fetchOpportunities: (term?: string | null) => Promise<void>;
+  // `type` null (o absent): totes les oportunitats, sense filtrar per tipus d'actiu.
+  fetchOpportunities: (term?: string | null, type?: OpportunityType | null) => Promise<void>;
   detailStatus: RequestStatus;
   detailId: number | null;
   detailDetails: string;
   realEstateOpportunity: RealEstateOpportunityGetResponse | null;
   fetchRealEstateOpportunity: (id: number) => Promise<void>;
+  // Torna a llegir el detall que ja es mostra sense passar per «loading» (no desmunta la pàgina).
+  refreshRealEstateOpportunity: (id: number) => Promise<void>;
+  // Detall empresarial: comparteix detailStatus, detailId i detailDetails amb l'immobiliari.
+  businessOpportunity: BusinessOpportunityGetResponse | null;
+  fetchBusinessOpportunity: (id: number) => Promise<void>;
+  commitStatus: "idle" | RequestStatus;
+  commitError: CommitmentErrorKind | null;
+  commitDetails: string;
+  // Compromet `amountCents` del saldo disponible en l'oportunitat. Mai llança: retorna null si falla.
+  commitContribution: (opportunityId: number, amountCents: number) => Promise<CommitmentOutcome | null>;
+  resetCommitment: () => void;
 }
 
-export const useOpportunityStore = create<OpportunityState>((set) => ({
+export const useOpportunityStore = create<OpportunityState>((set, get) => ({
     status: "loading",
     details: "",
     opportunities: [],
     searchedOpportunities: [],
-    fetchOpportunities: async (term?: string | null) => {
+    fetchOpportunities: async (term?: string | null, type?: OpportunityType | null) => {
         set({ status: "loading", details: "" });
         try {
+            // buildUrl omet els paràmetres null o undefined: sense tipus no s'envia `type`.
             const data = await fintechGet<Opportunity[]>("/opportunities", {
                 params: {
-                    name: term
+                    name: term,
+                    type,
                 },
                 signal: AbortSignal.timeout(5000)
             });
@@ -117,4 +230,72 @@ export const useOpportunityStore = create<OpportunityState>((set) => ({
             set({ detailStatus: "error", detailDetails: toErrorMessage(error), realEstateOpportunity: null });
         }
     },
+    refreshRealEstateOpportunity: async (id) => {
+        // Només actualitza el detall que es mostra, i no invalida una càrrega completa en curs.
+        const isCurrent = () => get().detailId === id && get().detailStatus === "success";
+        if (!isCurrent()) return;
+        const requestId = latestDetailRequest;
+        try {
+            const data = await fintechGet<RealEstateOpportunityGetResponse>(`/opportunities/${id}`, {
+                signal: AbortSignal.timeout(5000)
+            });
+            if (requestId !== latestDetailRequest || !isCurrent() || data?.id !== id) return;
+            set({ realEstateOpportunity: data });
+        } catch {
+            // Si falla, es manté el detall que ja es mostrava.
+        }
+    },
+    businessOpportunity: null,
+    fetchBusinessOpportunity: async (id) => {
+        const requestId = ++latestDetailRequest;
+        set({ detailStatus: "loading", detailId: id, detailDetails: "", businessOpportunity: null });
+        try {
+            const data = await fintechGet<BusinessOpportunityGetResponse>(`/opportunities/${id}`, {
+                signal: AbortSignal.timeout(5000)
+            });
+            if (requestId !== latestDetailRequest) return;
+            set({ detailStatus: "success", businessOpportunity: data });
+        } catch (error : unknown) {
+            if (requestId !== latestDetailRequest) return;
+            set({ detailStatus: "error", detailDetails: toErrorMessage(error), businessOpportunity: null });
+        }
+    },
+    commitStatus: "idle",
+    commitError: null,
+    commitDetails: "",
+    commitContribution: async (opportunityId, amountCents) => {
+        // Evita comprometre dues vegades amb un doble clic a «Confirmar aportación».
+        if (get().commitStatus === "loading") return null;
+        set({ commitStatus: "loading", commitError: null, commitDetails: "" });
+        try {
+            const data = await fintechPost<CommitmentResult>(
+                `/opportunities/${opportunityId}/commitments`,
+                { amount_cents: amountCents },
+            );
+            const funding = data?.opportunity;
+            const current = get().realEstateOpportunity;
+            if (current?.id === opportunityId && isCents(funding?.committed_cents) && isCents(funding?.target_amount_cents)) {
+                // El detall mostra a l'instant el capital compromès i el percentatge nous.
+                set({
+                    realEstateOpportunity: {
+                        ...current,
+                        committed_cents: funding.committed_cents,
+                        target_amount_cents: funding.target_amount_cents,
+                    },
+                });
+            } else if (current?.id === opportunityId) {
+                // Resposta inesperada: l'aportació s'ha fet, tornem a llegir el detall.
+                void get().fetchRealEstateOpportunity(opportunityId);
+            }
+            const balance = useWalletStore.getState().applyBalance(data?.wallet);
+            set({ commitStatus: "success", commitError: null, commitDetails: "" });
+            return { amount_cents: amountCents, available_cents: balance?.available_cents ?? null };
+        } catch (error: unknown) {
+            // Un error no canvia ni el saldo ni el capital compromès que es mostren.
+            const kind = toCommitmentError(error);
+            set({ commitStatus: "error", commitError: kind, commitDetails: COMMITMENT_ERRORS[kind] });
+            return null;
+        }
+    },
+    resetCommitment: () => set({ commitStatus: "idle", commitError: null, commitDetails: "" }),
 }));

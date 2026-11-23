@@ -22,7 +22,7 @@ export function validatePersonalDetails(data: PersonalDetails): PersonalDetailsE
     const name = data[field].trim();
     if (!name) {
       errors[field] = field === "first_name" ? "Introduce tu nombre." : "Introduce tus apellidos.";
-    } else if (!/^[\p{L}\p{M}\p{Zs}'’\-]+$/u.test(name)) {
+    } else if (!/^[\p{L}\p{M}\p{Zs}'’-]+$/u.test(name)) {
       errors[field] = "Usa solo letras, espacios, apóstrofos y guiones.";
     }
   }
