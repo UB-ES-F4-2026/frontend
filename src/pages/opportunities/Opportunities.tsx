@@ -1,9 +1,10 @@
 import { Button, Label } from "@heroui/react";
-import { useOpportunityStore } from "../../store/useOpportunityStore";
+import { useOpportunityStore, type OpportunityType } from "../../store/useOpportunityStore";
 import OpportunityCard from "./common/OpportunityCard";
 import { useEffect, useState } from "react";
 import OpportunitiesSkeleton from "./OpportunitiesSkeleton";
 import SearchOpportunities from "./SearchOpportunities";
+import OpportunityTypeFilter from "./OpportunityTypeFilter";
 
 const Opportunities = () => {
   const { 
@@ -13,17 +14,26 @@ const Opportunities = () => {
     fetchOpportunities,
   } = useOpportunityStore();
 
-  const [fromSearch, setFromSearch] = useState(false); 
+  // La cerca aplicada és l'última que s'ha llançat, no el text que hi ha escrit al camp.
+  const [appliedTerm, setAppliedTerm] = useState("");
+  // null: «Todos».
+  const [type, setType] = useState<OpportunityType | null>(null);
+  const isFiltered = appliedTerm.length > 0 || type !== null;
 
   useEffect(() => {
     fetchOpportunities();
   }, [fetchOpportunities]);
 
+  // Cercar conserva el tipus seleccionat.
   const onSearchHandler = (term: string) => {
-    if(term.length > 0) {
-      setFromSearch(true);
-    }
-    fetchOpportunities(term);
+    setAppliedTerm(term);
+    fetchOpportunities(term, type);
+  };
+
+  // Canviar el tipus aplica el filtre de seguida i conserva la cerca aplicada.
+  const onTypeChange = (nextType: OpportunityType | null) => {
+    setType(nextType);
+    fetchOpportunities(appliedTerm, nextType);
   };
 
   return (
@@ -39,7 +49,10 @@ const Opportunities = () => {
         </div>
       </div>
 
-      <SearchOpportunities onSearchHandler={onSearchHandler} />
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start">
+        <SearchOpportunities onSearchHandler={onSearchHandler} />
+        <OpportunityTypeFilter value={type} onChange={onTypeChange} />
+      </div>
 
       <Label>{opportunities.length} oportunidades encontradas</Label>
 
@@ -58,7 +71,7 @@ const Opportunities = () => {
         (opportunities.length === 0 ? (
           <div className="rounded-[12px] border border-line bg-white p-8 text-center mt-3">
             <p className="text-sm text-muted">
-              {fromSearch ? 
+              {isFiltered ? 
                 "No se encontraron oportunidades que coincidan con los criterios de búsqueda." : 
                 "¡Aún no hay oportunidades publicadas!"}
             </p>
