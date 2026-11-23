@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Alert, Button } from "@heroui/react";
+import { Button } from "@heroui/react";
 import {
   useOpportunityStore,
   type BusinessOpportunityGetResponse,
@@ -19,6 +19,7 @@ import OpportunityOverview from "../common/OpportunityOverview";
 import OpportunityPromoterSection from "../common/OpportunityPromoterSection";
 import OpportunityStateMessage from "../common/OpportunityStateMessage";
 import OpportunityTimeline from "../common/OpportunityTimeline";
+import CommitContributionModal from "../dialogs/CommitContributionModal";
 import {
   buildGalleryImages,
   formatCents,
@@ -26,15 +27,12 @@ import {
   splitDescription,
 } from "../common/opportunityFormat";
 
-// La inversió empresarial encara no es pot comprometre al backend (US03.1.2).
-const INVESTMENT_UNAVAILABLE =
-  "La inversión en oportunidades empresariales estará disponible próximamente.";
-
 const BusinessDetailContent = ({ opportunity }: { opportunity: BusinessOpportunityGetResponse }) => {
   const now = useNow();
   const navigate = useNavigate();
   const account = useAuthStore((state) => state.active_account);
-  const [showUnavailable, setShowUnavailable] = useState(false);
+  const [isInvestmentOpen, setInvestmentOpen] = useState(false);
+  const refreshBusinessOpportunity = useOpportunityStore((state) => state.refreshBusinessOpportunity);
 
   const business = opportunity.business;
   const { intro, summary } = splitDescription(opportunity.description);
@@ -55,7 +53,7 @@ const BusinessDetailContent = ({ opportunity }: { opportunity: BusinessOpportuni
       navigate("/login");
       return;
     }
-    setShowUnavailable(true);
+    setInvestmentOpen(true);
   };
 
   return (
@@ -69,23 +67,15 @@ const BusinessDetailContent = ({ opportunity }: { opportunity: BusinessOpportuni
         intro={intro}
         images={galleryImages}
       >
-        <OpportunityFundingCard
-          opportunity={opportunity}
-          now={now}
-          onInvest={handleInvest}
-          footer={
-            showUnavailable && (
-              <div role="status" className="mt-3">
-                <Alert status="warning">
-                  <Alert.Indicator />
-                  <Alert.Content>
-                    <Alert.Description>{INVESTMENT_UNAVAILABLE}</Alert.Description>
-                  </Alert.Content>
-                </Alert>
-              </div>
-            )
-          }
-        />
+        <OpportunityFundingCard opportunity={opportunity} now={now} onInvest={handleInvest} />
+        {/* Es munta en obrir-lo: cada obertura comença de zero i torna a llegir el saldo. */}
+        {isInvestmentOpen && (
+          <CommitContributionModal
+            opportunity={opportunity}
+            onClose={() => setInvestmentOpen(false)}
+            onRefresh={() => void refreshBusinessOpportunity(opportunity.id)}
+          />
+        )}
       </OpportunityOverview>
 
       <div className="flex flex-col gap-[18px]">

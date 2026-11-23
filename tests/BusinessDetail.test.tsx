@@ -12,6 +12,22 @@ const opportunityState = vi.hoisted(() => ({
   detailDetails: "",
   businessOpportunity: null as BusinessOpportunityGetResponse | null,
   fetchBusinessOpportunity: vi.fn(),
+  refreshBusinessOpportunity: vi.fn(),
+}));
+
+// El diàleg d'inversió es prova a CommitInvestment.test.tsx; aquí només si s'obre i amb quines dades.
+vi.mock("../src/pages/opportunities/dialogs/CommitContributionModal", () => ({
+  default: ({ opportunity, onClose, onRefresh }: {
+    opportunity: { id: number; type: string };
+    onClose: () => void;
+    onRefresh: () => void;
+  }) => (
+    <div role="dialog" aria-label="Diàleg simulat">
+      Oportunitat {opportunity.id} ({opportunity.type})
+      <button onClick={onRefresh}>Actualitzar</button>
+      <button onClick={onClose}>Tancar</button>
+    </div>
+  ),
 }));
 
 const authState = vi.hoisted(() => ({
@@ -268,18 +284,29 @@ describe("BusinessDetail - Botó «Quiero invertir»", () => {
     expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
   });
 
-  it("amb sessió, avisa que la inversió empresarial encara no està disponible", async () => {
+  it("amb sessió, obre el diàleg d'inversió amb l'oportunitat empresarial", async () => {
     authState.active_account = { id: 1, email: "ana@example.com", created_at: "2026-10-17T10:00:00Z" };
     const user = userEvent.setup();
     renderBusinessDetail();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Quiero invertir" }));
 
-    const notice = await screen.findByText(
-      "La inversión en oportunidades empresariales estará disponible próximamente.",
-    );
-    // L'avís s'anuncia a les tecnologies d'assistència sense moure el focus.
-    expect(notice.closest('[role="status"]')).not.toBeNull();
+    expect(screen.getByRole("dialog", { name: "Diàleg simulat" })).toHaveTextContent("Oportunitat 44 (equity)");
     expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/opportunities\/equity\/44$/);
+  });
+
+  it("en tancar el diàleg torna al detall, i si cal el torna a llegir sense desmuntar-lo", async () => {
+    authState.active_account = { id: 1, email: "ana@example.com", created_at: "2026-10-17T10:00:00Z" };
+    const user = userEvent.setup();
+    renderBusinessDetail();
+    await user.click(screen.getByRole("button", { name: "Quiero invertir" }));
+
+    await user.click(screen.getByRole("button", { name: "Actualitzar" }));
+    expect(opportunityState.refreshBusinessOpportunity).toHaveBeenCalledExactlyOnceWith(44);
+
+    await user.click(screen.getByRole("button", { name: "Tancar" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Expansión de BioPack" })).toBeInTheDocument();
   });
 });

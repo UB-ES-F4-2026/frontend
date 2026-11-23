@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   INSUFFICIENT_FUNDS_MESSAGE,
   checkContribution,
+  estimatedEquityPercent,
+  formatEquityPercent,
   requiredMinimumCents,
 } from "../src/pages/opportunities/dialogs/contributionAmount";
 import { formatAmountCents, formatAmountInput, parseEuroAmount } from "../src/service/money";
@@ -147,3 +149,42 @@ describe("formatAmountCents", () => {
     expect(formatAmountCents(cents)).toBe(text);
   });
 });
+
+describe("checkContribution en una inversió empresarial (US03.1.2)", () => {
+  const limits = { minimumCents: 250_00, remainingCents: 115_500_00, availableCents: 1_500_00 };
+
+  it("els missatges parlen d'«inversión»", () => {
+    expect(checkContribution("2000", limits, "inversión")).toEqual({
+      error: "No tienes saldo suficiente para esta inversión.",
+      insufficientFunds: true,
+    });
+    expect(checkContribution("", limits, "inversión")).toMatchObject({ error: "Introduce el importe de la inversión." });
+    expect(checkContribution("50", { ...limits, remainingCents: 100_00 }, "inversión")).toMatchObject({
+      error: "La inversión debe ser de 100,00 €, el importe pendiente para alcanzar el objetivo.",
+    });
+  });
+
+  it("per defecte continua parlant d'«aportación»", () => {
+    expect(checkContribution("2000", limits)).toMatchObject({ error: "No tienes saldo suficiente para esta aportación." });
+  });
+});
+
+describe("participació estimada", () => {
+  const terms = { preInvestmentValuationCents: 2_700_000_00, targetCents: 300_000_00 };
+
+  it("és l'import ÷ (valoració prèvia + objectiu), en percentatge (maqueta: 1.000 € → 0,033 %)", () => {
+    expect(estimatedEquityPercent(1_000_00, terms)).toBeCloseTo(0.033333, 6);
+    expect(formatEquityPercent(estimatedEquityPercent(1_000_00, terms))).toBe("0,033\u00A0%");
+    expect(formatEquityPercent(estimatedEquityPercent(2_000_00, terms))).toBe("0,067\u00A0%");
+  });
+
+  it("tot l'objectiu correspon a la participació oferta", () => {
+    expect(formatEquityPercent(estimatedEquityPercent(300_000_00, terms))).toBe("10,000\u00A0%");
+  });
+
+  it("una participació que arrodonida quedaria en zero es mostra com a «< 0,001 %»", () => {
+    expect(formatEquityPercent(estimatedEquityPercent(1, terms))).toBe("< 0,001\u00A0%");
+    expect(formatEquityPercent(0)).toBe("0,000\u00A0%");
+  });
+});
+

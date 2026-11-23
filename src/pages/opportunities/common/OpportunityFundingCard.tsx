@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Card } from "@heroui/react";
 import Icon from "./OpportunityIcon";
 import OpportunityInvestmentButton from "./OpportunityInvestmentButton";
@@ -16,11 +15,9 @@ interface OpportunityFundingCardProps {
   now: number;
   // Només es crida si el botó «Quiero invertir» està actiu.
   onInvest: () => void;
-  // Contingut opcional sota el botó (p. ex. un avís en prémer-lo).
-  footer?: ReactNode;
 }
 
-const OpportunityFundingCard = ({ opportunity, now, onInvest, footer }: OpportunityFundingCardProps) => {
+const OpportunityFundingCard = ({ opportunity, now, onInvest }: OpportunityFundingCardProps) => {
   const ratio =
     opportunity.target_amount_cents > 0
       ? opportunity.committed_cents / opportunity.target_amount_cents
@@ -106,7 +103,6 @@ const OpportunityFundingCard = ({ opportunity, now, onInvest, footer }: Opportun
           disabled={investmentButtonDisabled}
           investmentHandler={handleInvestmentButton}
         />
-        {footer}
       </dl>
     </Card>
   );
