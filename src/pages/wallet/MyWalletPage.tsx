@@ -1,5 +1,6 @@
-import { useEffect } from "react";
-import { Button, Card, Spinner } from "@heroui/react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router";
+import { Alert, Button, buttonVariants, Card, Spinner } from "@heroui/react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useWalletStore } from "../../store/useWalletStore";
 import { formatEuroCents } from "../../service/money";
@@ -28,6 +29,8 @@ export default function MyWalletPage() {
   const balance = useWalletStore((state) => state.balance);
   const fetchBalance = useWalletStore((state) => state.fetchBalance);
   const reset = useWalletStore((state) => state.reset);
+  // Ingrés que s'acaba de pagar. Es llegeix en entrar perquè sortir (reset) l'esborra del store.
+  const [deposit] = useState(() => useWalletStore.getState().lastDeposit);
 
   // Cada entrada (o canvi de client) fa una lectura nova; en sortir es descarta el saldo.
   useEffect(() => {
@@ -49,6 +52,28 @@ export default function MyWalletPage() {
             Entorno de simulación. Este saldo no representa dinero real.
           </p>
         </div>
+
+        {deposit && (
+          <div role="status" className="flex flex-col items-start gap-3">
+            <Alert status="success">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>Ingreso realizado</Alert.Title>
+                <Alert.Description>
+                  {deposit.reflected
+                    ? `Se han añadido ${formatEuroCents(deposit.amount_cents)} a tu saldo disponible.`
+                    : `Tu pago de ${formatEuroCents(deposit.amount_cents)} se ha completado. El saldo puede tardar unos instantes en actualizarse.`}
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
+            {/* El backend acredita l'ingrés quan rep l'avís de Stripe: pot arribar més tard. */}
+            {!deposit.reflected && (
+              <Button variant="secondary" isDisabled={isLoading} onPress={() => void fetchBalance()}>
+                Actualizar saldo
+              </Button>
+            )}
+          </div>
+        )}
 
         <section aria-labelledby="balance-label">
           <Card className="gap-0 overflow-hidden p-0 shadow-sm">
@@ -112,6 +137,13 @@ export default function MyWalletPage() {
             </div>
           </Card>
         </section>
+
+        <Link
+          to="/my-balance/deposit"
+          className={`${buttonVariants({ variant: "primary", size: "lg" })} w-fit bg-warning text-warning-foreground hover:bg-warning/90`}
+        >
+          Ingresar fondos
+        </Link>
       </div>
     </div>
   );
