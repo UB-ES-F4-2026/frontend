@@ -3,7 +3,7 @@ name: Frontend CI
 on:
   push:
   pull_request:
-    branches: [main]
+    branches: [dev, main]
   workflow_dispatch:
 
 permissions:
@@ -15,6 +15,31 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  frontend-unit-coverage:
+    name: Frontend unit tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Build frontend test image
+        run: docker build --tag frontend-ci .
+      - name: Run unit tests with coverage
+        run: |
+          docker create --name frontend-unit-coverage frontend-ci npm run test:unit:coverage
+          docker start -a frontend-unit-coverage
+          docker cp frontend-unit-coverage:/app/coverage ./coverage
+      - name: Upload frontend coverage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-unit-coverage
+          path: coverage
+          if-no-files-found: error
+      - name: Remove temporary coverage container
+        if: always()
+        run: docker rm -f frontend-unit-coverage || true
+
   frontend-build:
     name: Frontend Docker and Vite build
     runs-on: ubuntu-latest
@@ -29,8 +54,8 @@ jobs:
           docker build --tag frontend-ci .
       - name: Compile production frontend
         run: docker run --rm frontend-ci npm run build
-      - name: Run all frontend tests
-        run: docker run --rm frontend-ci npm test
+      - name: Run frontend integration tests
+        run: docker run --rm frontend-ci npm run test:integration
       - name: Build production image
         run: docker build --file Dockerfile.production --tag frontend-production-ci .
       - name: Validate Caddy configuration
@@ -49,12 +74,13 @@ jobs:
   required-checks:
     name: Frontend required checks
     if: always()
-    needs: frontend-build
+    needs: [frontend-unit-coverage, frontend-build]
     runs-on: ubuntu-latest
     steps:
       - env:
-          RESULT: ${{ needs.frontend-build.result }}
-        run: test "$RESULT" = success
+          UNIT: ${{ needs.frontend-unit-coverage.result }}
+          INTEGRATION: ${{ needs.frontend-build.result }}
+        run: test "$UNIT" = success && test "$INTEGRATION" = success
 
   publish:
     name: Publish frontend image

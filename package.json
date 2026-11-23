@@ -8,6 +8,9 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5173 --strictPort",
     "test": "vitest run",
+    "test:unit": "vitest run --exclude tests/**/*.integration.test.tsx",
+    "test:unit:coverage": "vitest run --coverage --exclude tests/**/*.integration.test.tsx",
+    "test:integration": "vitest run tests/**/*.integration.test.tsx",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report"
@@ -27,6 +30,7 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
+    "@vitest/coverage-v8": "4.1.12",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "6.1.2",
