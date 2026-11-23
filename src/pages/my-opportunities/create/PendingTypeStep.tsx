@@ -1,5 +1,4 @@
-// Contingut provisional del pas propi de cada tipus fins que s'hi incorporin els camps
-// d'Inmueble (frontend#66) i d'Empresa (frontend#68).
+// Contingut provisional del pas «Empresa» fins que s'hi incorporin els seus camps (frontend#68).
 export default function PendingTypeStep() {
   return (
     <p className="text-sm text-muted">
