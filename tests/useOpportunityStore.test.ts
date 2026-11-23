@@ -203,3 +203,42 @@ describe("useOpportunityStore: detall empresarial", () => {
     expect(useOpportunityStore.getState()).toMatchObject({ detailId: 45, businessOpportunity: { id: 45 } });
   });
 });
+
+describe("useOpportunityStore: llistat del catàleg", () => {
+  it("envia la cerca i el tipus d'actiu i desa el llistat", async () => {
+    const listed = [{ id: 4, type: "equity", title: "Cervecera artesana en Girona" }];
+    get.mockResolvedValue(listed);
+
+    await useOpportunityStore.getState().fetchOpportunities("girona", "equity");
+
+    expect(get).toHaveBeenCalledWith(
+      "/opportunities",
+      expect.objectContaining({ params: { name: "girona", type: "equity" } }),
+    );
+    expect(useOpportunityStore.getState()).toMatchObject({ status: "success", opportunities: listed });
+  });
+
+  it("amb «Todos» passa el tipus com a null, que buildUrl omet de la petició", async () => {
+    get.mockResolvedValue([]);
+
+    await useOpportunityStore.getState().fetchOpportunities("girona", null);
+
+    expect(get).toHaveBeenCalledWith(
+      "/opportunities",
+      expect.objectContaining({ params: { name: "girona", type: null } }),
+    );
+  });
+
+  it("desa el missatge d'error i buida el llistat si la consulta falla", async () => {
+    useOpportunityStore.setState({ opportunities: [{ id: 1 } as never] });
+    get.mockRejectedValue(new ApiError("Internal Server Error", 500, null));
+
+    await useOpportunityStore.getState().fetchOpportunities("", "real_estate");
+
+    expect(useOpportunityStore.getState()).toMatchObject({
+      status: "error",
+      details: "Internal Server Error (HTTP 500)",
+      opportunities: [],
+    });
+  });
+});

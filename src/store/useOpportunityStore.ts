@@ -171,7 +171,8 @@ interface OpportunityState {
   status: RequestStatus;
   details: string;
   opportunities: Opportunity[];
-  fetchOpportunities: (term?: string | null) => Promise<void>;
+  // `type` null (o absent): totes les oportunitats, sense filtrar per tipus d'actiu.
+  fetchOpportunities: (term?: string | null, type?: OpportunityType | null) => Promise<void>;
   detailStatus: RequestStatus;
   detailId: number | null;
   detailDetails: string;
@@ -195,12 +196,14 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
     details: "",
     opportunities: [],
     searchedOpportunities: [],
-    fetchOpportunities: async (term?: string | null) => {
+    fetchOpportunities: async (term?: string | null, type?: OpportunityType | null) => {
         set({ status: "loading", details: "" });
         try {
+            // buildUrl omet els paràmetres null o undefined: sense tipus no s'envia `type`.
             const data = await fintechGet<Opportunity[]>("/opportunities", {
                 params: {
-                    name: term
+                    name: term,
+                    type,
                 },
                 signal: AbortSignal.timeout(5000)
             });

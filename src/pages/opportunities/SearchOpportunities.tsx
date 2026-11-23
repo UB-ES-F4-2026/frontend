@@ -9,7 +9,7 @@ const SearchOpportunities = ({ onSearchHandler }: SearchOpportunitiesProps) => {
   const [searchTerm, setSearchTerm] = useState("");
 
   return (
-    <div className="mb-7 w-3/5">
+    <div className="w-full sm:w-3/5">
       <div className="flex flex-row items-end gap-4">
         <SearchField
           name="search"
