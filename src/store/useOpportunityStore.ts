@@ -155,6 +155,62 @@ const toCommitmentError = (error: unknown): CommitmentErrorKind => {
   }
 };
 
+// Cos `metadata` de POST /api/opportunities (backend: OpportunityCreate). Les imatges van a part,
+// al mateix formulari multipart.
+export interface OpportunityCreateMetadata {
+  type: OpportunityType;
+  title: string;
+  description: string;
+  location: { municipality: string; province: string; country: string };
+  target_amount_cents: number;
+  minimum_contribution_cents: number;
+  // ISO amb zona horària: el backend rebutja les dates sense zona.
+  deadline: string;
+  initial_contribution_cents: number | null;
+  // Dades pròpies de cada tipus; les defineixen els passos Inmueble (#66) i Empresa (#68).
+  real_estate?: Record<string, unknown>;
+  business?: Record<string, unknown>;
+}
+
+export const CREATE_OPPORTUNITY_ERRORS = {
+  forbidden: "Necesitas una entidad promotora para crear oportunidades.",
+  insufficient_funds: INSUFFICIENT_FUNDS_MESSAGE,
+  not_reserved: "No se ha podido reservar tu aportación inicial. Inténtalo de nuevo.",
+  invalid_image: "Alguna imagen no es válida. Usa imágenes JPG, PNG o WebP de hasta 5 MB.",
+  invalid_data: "Algún dato de la oportunidad no es válido. Revísalo y vuelve a enviarla.",
+  unexpected: "No se ha podido enviar la oportunidad. Inténtalo de nuevo.",
+} as const;
+
+// Textos `detail` del backend (app/core/media.py) quan una imatge no és vàlida.
+const IMAGE_ERRORS = new Set([
+  "At least one image is required",
+  "Image exceeds the maximum size",
+  "Unsupported image format",
+  "Image content type does not match its content",
+]);
+
+const toCreateOpportunityError = (error: unknown): string => {
+  if (!(error instanceof ApiError)) return CREATE_OPPORTUNITY_ERRORS.unexpected;
+  switch (error.status) {
+    case 401:
+      // SessionManager ja porta al login: el formulari no mostra res.
+      return "";
+    case 403:
+      return CREATE_OPPORTUNITY_ERRORS.forbidden;
+    case 409:
+      // El saldo pot haver canviat des que es va validar el pas «Financiación».
+      return error.message === "Insufficient available balance"
+        ? CREATE_OPPORTUNITY_ERRORS.insufficient_funds
+        : CREATE_OPPORTUNITY_ERRORS.not_reserved;
+    case 422:
+      return IMAGE_ERRORS.has(error.message)
+        ? CREATE_OPPORTUNITY_ERRORS.invalid_image
+        : CREATE_OPPORTUNITY_ERRORS.invalid_data;
+    default:
+      return CREATE_OPPORTUNITY_ERRORS.unexpected;
+  }
+};
+
 const isCents = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 
@@ -189,6 +245,11 @@ interface OpportunityState {
   // Compromet `amountCents` del saldo disponible en l'oportunitat. Mai llança: retorna null si falla.
   commitContribution: (opportunityId: number, amountCents: number) => Promise<CommitmentOutcome | null>;
   resetCommitment: () => void;
+  createStatus: "idle" | RequestStatus;
+  createDetails: string;
+  // Crea l'oportunitat pendent de revisió. Mai llança: retorna null si falla.
+  createOpportunity: (metadata: OpportunityCreateMetadata, images: File[]) => Promise<Opportunity | null>;
+  resetCreation: () => void;
 }
 
 export const useOpportunityStore = create<OpportunityState>((set, get) => ({
@@ -298,4 +359,24 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
         }
     },
     resetCommitment: () => set({ commitStatus: "idle", commitError: null, commitDetails: "" }),
+    createStatus: "idle",
+    createDetails: "",
+    createOpportunity: async (metadata, images) => {
+        // Evita crear dues oportunitats amb un doble clic a «Enviar a revisión».
+        if (get().createStatus === "loading") return null;
+        set({ createStatus: "loading", createDetails: "" });
+        const body = new FormData();
+        body.append("metadata", JSON.stringify(metadata));
+        // L'ordre es conserva: la primera imatge és la portada.
+        images.forEach((image) => body.append("images", image));
+        try {
+            const created = await fintechPost<Opportunity>("/opportunities", body);
+            set({ createStatus: "success", createDetails: "" });
+            return created;
+        } catch (error: unknown) {
+            set({ createStatus: "error", createDetails: toCreateOpportunityError(error) });
+            return null;
+        }
+    },
+    resetCreation: () => set({ createStatus: "idle", createDetails: "" }),
 }));

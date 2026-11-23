@@ -48,6 +48,11 @@ const Header = () => {
               <NavLink to="/my-balance" className={(s) => `${navLinkClass(s)} whitespace-nowrap`}>
                 Mi saldo
               </NavLink>
+              {account.is_promoter && (
+                <NavLink to="/my-opportunities" className={(s) => `${navLinkClass(s)} whitespace-nowrap`}>
+                  Mis oportunidades
+                </NavLink>
+              )}
               <Button variant="danger" size="lg" onPress={handleLogout} isDisabled={status === "loading"}>
                 Cerrar sesión
               </Button>
