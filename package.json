@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:unit": "vitest run --exclude tests/**/*.integration.test.tsx",
     "test:unit:coverage": "vitest run --coverage --exclude tests/**/*.integration.test.tsx",
-    "test:integration": "vitest run tests/Register.integration.test.tsx tests/Opportunities.integration.test.tsx",
+    "test:integration": "vitest run tests/*.integration.test.tsx",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
