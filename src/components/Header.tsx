@@ -48,6 +48,9 @@ const Header = () => {
               <NavLink to="/my-balance" className={(s) => `${navLinkClass(s)} whitespace-nowrap`}>
                 Mi saldo
               </NavLink>
+              <NavLink to="/my-investments" className={(s) => `${navLinkClass(s)} whitespace-nowrap`}>
+                Mis inversiones
+              </NavLink>
               {account.is_promoter && (
                 <NavLink to="/my-opportunities" className={(s) => `${navLinkClass(s)} whitespace-nowrap`}>
                   Mis oportunidades

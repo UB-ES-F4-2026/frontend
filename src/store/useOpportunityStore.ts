@@ -264,8 +264,53 @@ const toErrorMessage = (error: unknown) => {
     return "Se ha producido un error desconocido.";
 };
 
+// Estat de finançament calculat pel backend en el moment de la consulta (app/core/funding.py).
+export type FundingStatus = "pending_review" | "rejected" | "closed" | "funded" | "expired" | "in_funding";
+
+// Una oportunitat de l'entitat promotora a «Mis oportunidades» (backend: PromoterOpportunityRead).
+export interface PromoterOpportunity {
+  id: number;
+  title: string;
+  type: OpportunityType;
+  funding_status: FundingStatus;
+  target_amount_cents: number;
+  committed_cents: number;
+  // Quants usuaris diferents hi han invertit; el backend mai diu qui són.
+  investors_count: number;
+  deadline: string;
+  // null mentre està pendent de revisió: llavors es mostra `created_at`.
+  date_published: string | null;
+  created_at: string;
+  // Les pendents de revisió encara no tenen detall públic.
+  is_public: boolean;
+}
+
+export interface PromoterOpportunitiesSummary {
+  // Només les publicades: les pendents de revisió no hi compten.
+  committed_cents: number;
+  // El mateix recompte que «Proyectos publicados» al perfil de l'entitat.
+  published_count: number;
+  in_funding_count: number;
+  pending_review_count: number;
+}
+
+// Resposta de GET /api/me/opportunities, amb la llista de la més recent a la més antiga.
+export interface PromoterOpportunities {
+  summary: PromoterOpportunitiesSummary;
+  opportunities: PromoterOpportunity[];
+}
+
+interface PromotingEntityListItem {
+  user_id: number;
+  legal_name: string;
+}
+
+export const MY_OPPORTUNITIES_ERROR = "No se han podido cargar tus oportunidades.";
+
 // Descarta respuestas de peticiones de detalle que ya han sido sustituidas por otra.
 let latestDetailRequest = 0;
+// El mateix per a «Mis oportunidades»: només compta l'última consulta.
+let latestMineRequest = 0;
 
 // Llegeix el detall `id` sense passar per «loading». Retorna null si falla o si mentrestant
 // s'ha començat a carregar un altre detall.
@@ -307,6 +352,13 @@ interface OpportunityState {
     type?: OpportunityType,
   ) => Promise<CommitmentOutcome | null>;
   resetCommitment: () => void;
+  myOpportunitiesStatus: "idle" | RequestStatus;
+  // Missatge d'error; "forbidden" si el compte no té entitat promotora (403) i "" amb la sessió caducada.
+  myOpportunitiesError: string;
+  myOpportunities: PromoterOpportunities | null;
+  // Raó social de l'entitat, per al subtítol; null si no s'ha pogut consultar.
+  promoterName: string | null;
+  fetchMyOpportunities: (userId: number) => Promise<void>;
   createStatus: "idle" | RequestStatus;
   createDetails: string;
   // Crea l'oportunitat pendent de revisió. Mai llança: retorna null si falla.
@@ -457,4 +509,31 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
         }
     },
     resetCreation: () => set({ createStatus: "idle", createDetails: "" }),
+    myOpportunitiesStatus: "idle",
+    myOpportunitiesError: "",
+    myOpportunities: null,
+    promoterName: null,
+    fetchMyOpportunities: async (userId) => {
+        const requestId = ++latestMineRequest;
+        set({ myOpportunitiesStatus: "loading", myOpportunitiesError: "" });
+        // El nom de l'entitat és opcional: si falla, la pàgina es mostra igualment sense.
+        const name = fintechGet<PromotingEntityListItem[]>("/promotingentity", { signal: AbortSignal.timeout(5000) })
+            .then((entities) => entities.find((entity) => entity.user_id === userId)?.legal_name ?? null)
+            .catch(() => null);
+        try {
+            const data = await fintechGet<PromoterOpportunities>("/me/opportunities", {
+                signal: AbortSignal.timeout(5000),
+            });
+            const promoterName = await name;
+            if (requestId !== latestMineRequest) return;
+            set({ myOpportunitiesStatus: "success", myOpportunities: data, promoterName });
+        } catch (error: unknown) {
+            if (requestId !== latestMineRequest) return;
+            const message = error instanceof ApiError && error.status === 403
+                ? "forbidden"
+                // SessionManager ja porta al login: la pàgina no mostra res.
+                : error instanceof ApiError && error.status === 401 ? "" : MY_OPPORTUNITIES_ERROR;
+            set({ myOpportunitiesStatus: "error", myOpportunitiesError: message, myOpportunities: null });
+        }
+    },
 }));

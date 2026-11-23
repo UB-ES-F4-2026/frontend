@@ -128,3 +128,23 @@ describe("Header: accés a «Mis oportunidades» (US06.1)", () => {
     expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/my-opportunities$/);
   });
 });
+
+describe("Header: accés a «Mis inversiones» (US05.1)", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it("no l’ofereix als visitants", () => {
+    renderHeader();
+    expect(navigation().queryByRole("link", { name: "Mis inversiones" })).not.toBeInTheDocument();
+  });
+
+  it("l’ofereix a qualsevol usuari autenticat, al costat de «Mi saldo», i navega a /my-investments", async () => {
+    renderHeader();
+    act(() => useAuthStore.setState({ active_account: account }));
+    const link = navigation().getByRole("link", { name: "Mis inversiones" });
+    expect(link).toHaveAttribute("href", "/my-investments");
+
+    await userEvent.setup().click(link);
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/my-investments$/);
+    expect(link).toHaveAttribute("aria-current", "page");
+  });
+});

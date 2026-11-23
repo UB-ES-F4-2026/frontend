@@ -91,6 +91,13 @@ describe("Mi saldo", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
+  it("enllaça a «Mis inversiones» amb «Ver mis inversiones» (US05.1)", async () => {
+    get.mockResolvedValue(wallet(100));
+    renderPage();
+    await screen.findByText("1,00 €");
+    expect(screen.getByRole("link", { name: "Ver mis inversiones" })).toHaveAttribute("href", "/my-investments");
+  });
+
   it("amb saldo zero desactiva «Retirar fondos» i n'explica el motiu", async () => {
     get.mockResolvedValue(wallet(0));
     renderPage();
