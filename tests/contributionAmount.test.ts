@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   INSUFFICIENT_FUNDS_MESSAGE,
   checkContribution,
-  formatAmountInput,
-  parseEuroAmount,
   requiredMinimumCents,
 } from "../src/pages/opportunities/dialogs/contributionAmount";
-import { formatAmountCents } from "../src/service/money";
+import { formatAmountCents, formatAmountInput, parseEuroAmount } from "../src/service/money";
 
 // Mockup: 250,00 € disponibles, mínim de 100,00 € i 27.000,00 € pendents.
 const limits = { minimumCents: 100_00, remainingCents: 27_000_00, availableCents: 250_00 };

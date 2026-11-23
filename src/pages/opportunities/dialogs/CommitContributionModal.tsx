@@ -1,12 +1,4 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Alert,
@@ -14,7 +6,6 @@ import {
   Checkbox,
   Description,
   FieldError,
-  Input,
   Label,
   Modal,
   Spinner,
@@ -23,13 +14,9 @@ import {
 import { formatAmountCents, formatEuroCents } from "../../../service/money";
 import { useOpportunityStore } from "../../../store/useOpportunityStore";
 import { useWalletStore } from "../../../store/useWalletStore";
+import AmountInput from "../../../components/AmountInput";
 import Icon from "../common/OpportunityIcon";
-import {
-  checkContribution,
-  formatAmountInput,
-  parseEuroAmount,
-  requiredMinimumCents,
-} from "./contributionAmount";
+import { checkContribution, requiredMinimumCents } from "./contributionAmount";
 
 // Dades de l'oportunitat que necessita el diàleg; independent del tipus d'oportunitat.
 export interface ContributionOpportunity {
@@ -49,8 +36,7 @@ interface CommitContributionModalProps {
 
 type Step = "amount" | "confirm" | "done";
 
-// Fins que hi hagi una pàgina d'ingressos, «Ingresar fondos» porta a «Mi saldo».
-const DEPOSIT_PATH = "/my-balance";
+const DEPOSIT_PATH = "/my-balance/deposit";
 
 const PRIMARY = "bg-warning text-warning-foreground hover:bg-warning/90";
 const SECONDARY = "bg-warning/15 text-warning hover:bg-warning/25";
@@ -108,33 +94,11 @@ const CommitContributionModal = ({ opportunity, onClose, onRefresh }: CommitCont
   const [acceptedRisks, setAcceptedRisks] = useState(false);
   const [availableAfter, setAvailableAfter] = useState<number | null>(null);
 
-  // En afegir o treure punts de milers, React mouria el cursor al final: el retornem al seu lloc.
-  const amountInput = useRef<HTMLInputElement>(null);
-  const pendingCaret = useRef<number | null>(null);
-  useLayoutEffect(() => {
-    const input = amountInput.current;
-    const caret = pendingCaret.current;
-    pendingCaret.current = null;
-    if (input && caret !== null && document.activeElement === input) {
-      input.setSelectionRange(caret, caret);
-    }
-  }, [amountText]);
-
-  const handleAmountChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const input = event.target;
-    const inputType = (event.nativeEvent as InputEvent).inputType || "insertText";
-    const { text, caret } = formatAmountInput(input.value, input.selectionStart ?? input.value.length, inputType);
-    pendingCaret.current = caret;
+  const handleAmountChange = (text: string, reason: "input" | "blur") => {
     setAmountText(text);
+    if (reason === "blur") return;
     setAmountError(null);
     setInsufficientFunds(false);
-  };
-
-  // En sortir del camp es completa el format: «1.000» → «1.000,00». Si no és vàlid, es deixa
-  // tal com està perquè l'error de validació s'entengui.
-  const handleAmountBlur = () => {
-    const parsed = parseEuroAmount(amountText);
-    if ("cents" in parsed) setAmountText(formatAmountCents(parsed.cents));
   };
 
   // Cada obertura llegeix el saldo actual; en tancar es descarta, com a «Mi saldo».
@@ -275,16 +239,11 @@ const CommitContributionModal = ({ opportunity, onClose, onRefresh }: CommitCont
                       <Label className="text-sm font-medium text-foreground">
                         Importe de la aportación (€)
                       </Label>
-                      <Input
-                        ref={amountInput}
+                      <AmountInput
                         autoFocus
-                        inputMode="decimal"
-                        autoComplete="off"
                         placeholder={formatAmountCents(minimumCents)}
-                        className="h-12 w-full min-w-0 rounded-xl border border-foreground/15 bg-background px-4 text-base tabular-nums text-foreground shadow-none placeholder:text-foreground/40 focus:border-warning focus:ring-2 focus:ring-warning/30"
                         value={amountText}
-                        onChange={handleAmountChange}
-                        onBlur={handleAmountBlur}
+                        onValueChange={handleAmountChange}
                       />
                       <Description className="text-xs text-muted">
                         {onlyRemainingAllowed

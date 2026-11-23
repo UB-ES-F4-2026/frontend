@@ -8,6 +8,7 @@ import PrivacyPolicy from "../pages/legal/PrivacyPolicy";
 import Header from "../components/Header";
 import Opportunities from "../pages/opportunities/Opportunities";
 import MyWalletPage from "../pages/wallet/MyWalletPage";
+import WalletDepositPage from "../pages/wallet/WalletDepositPage";
 import RequireAuth from "../components/RequireAuth";
 import RealEstateDetail from "../pages/opportunities/real-estate/RealEstateDetail";
 
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/legal/politica-de-privacidad" element={<PrivacyPolicy />} />
           <Route path="/opportunities" element={<Opportunities />} />
           <Route path="/my-balance" element={<RequireAuth><MyWalletPage /></RequireAuth>} />
+          <Route path="/my-balance/deposit" element={<RequireAuth><WalletDepositPage /></RequireAuth>} />
           <Route path="/opportunities/real-estate/:id" element={<RealEstateDetail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
