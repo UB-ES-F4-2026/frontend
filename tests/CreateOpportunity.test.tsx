@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +7,7 @@ import CreateOpportunityPage from "../src/pages/my-opportunities/create/CreateOp
 import { ApiError, fintechGet, fintechPost } from "../src/service/api";
 import { useOpportunityStore } from "../src/store/useOpportunityStore";
 import { useWalletStore } from "../src/store/useWalletStore";
+import { clickMap } from "./support/reactLeaflet";
 
 // Pàgines i stores reals; només simulem les crides a l'API.
 vi.mock("../src/service/api", async (importOriginal) => ({
@@ -14,6 +15,8 @@ vi.mock("../src/service/api", async (importOriginal) => ({
   fintechGet: vi.fn(),
   fintechPost: vi.fn(),
 }));
+
+vi.mock("react-leaflet", async () => (await import("./support/reactLeaflet")).reactLeafletMock);
 
 const get = vi.mocked(fintechGet);
 const post = vi.mocked(fintechPost);
@@ -73,6 +76,31 @@ const fillGeneral = async (u: User, cover = image("portada.png")) => {
   await u.upload(imageInput(), cover);
 };
 
+const choose = async (u: User, field: RegExp, option: string) => {
+  await u.click(screen.getByRole("button", { name: field }));
+  await u.click(screen.getByRole("option", { name: option }));
+};
+
+// Les dades de l'immoble del mockup: sense viviendas previstas (Comercial).
+const fillRealEstate = async (u: User) => {
+  await choose(u, /Finalidad/, "Adquisición y rehabilitación");
+  await choose(u, /Uso previsto/, "Alquiler");
+  await choose(u, /Tipo de activo/, "Comercial");
+  await u.type(screen.getByLabelText("Superficie (m²)"), "180");
+};
+
+const REAL_ESTATE_PAYLOAD = {
+  purpose: "acquisition_and_renovation",
+  intended_use: "rental",
+  asset_type: "commercial",
+  surface_m2: "180.00",
+  planned_housing_units: null,
+  estimated_works_end: null,
+  estimated_rental_start: null,
+  public_latitude: null,
+  public_longitude: null,
+};
+
 const fillFunding = async (u: User, { initial = "" } = {}) => {
   await screen.findByText("8.000,00 €");
   await u.type(targetField(), "150000");
@@ -81,10 +109,11 @@ const fillFunding = async (u: User, { initial = "" } = {}) => {
   if (initial) await u.type(initialField(), initial);
 };
 
-// Omple els passos fins a «Financiación» (el pas propi del tipus encara no té camps).
+// Omple els passos fins a «Financiación».
 const goToFunding = async (u: User) => {
   await fillGeneral(u);
   await u.click(continueButton());
+  await fillRealEstate(u);
   await u.click(continueButton());
   expect(stepHeading()).toHaveTextContent("Financiación");
 };
@@ -214,6 +243,115 @@ describe("pas «Información general»", () => {
   });
 });
 
+describe("pas «Inmueble»", () => {
+  const goToRealEstate = async (u: User) => {
+    renderAt("/my-opportunities/new/real-estate");
+    await fillGeneral(u);
+    await u.click(continueButton());
+    expect(stepHeading()).toHaveTextContent("Inmueble");
+  };
+
+  it("no continua sense finalitat, ús previst, tipus d'actiu ni superfície", async () => {
+    const u = user();
+    await goToRealEstate(u);
+
+    await u.click(continueButton());
+
+    expect(stepHeading()).toHaveTextContent("Inmueble");
+    expect(screen.getByText("Selecciona la finalidad.")).toBeInTheDocument();
+    expect(screen.getByText("Selecciona el uso previsto.")).toBeInTheDocument();
+    expect(screen.getByText("Selecciona el tipo de activo.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Superficie (m²)")).toHaveAccessibleDescription("Introduce la superficie.");
+  });
+
+  it("amb un tipus Residencial exigeix les viviendas previstas", async () => {
+    const u = user();
+    await goToRealEstate(u);
+    await choose(u, /Finalidad/, "Construcción");
+    await choose(u, /Uso previsto/, "Venta");
+    await choose(u, /Tipo de activo/, "Residencial");
+    await u.type(screen.getByLabelText("Superficie (m²)"), "900");
+
+    await u.click(continueButton());
+
+    expect(stepHeading()).toHaveTextContent("Inmueble");
+    expect(screen.getByLabelText("Viviendas previstas")).toHaveAccessibleDescription(
+      "Introduce el número de viviendas previstas.",
+    );
+    await u.type(screen.getByLabelText("Viviendas previstas"), "12");
+    await u.click(continueButton());
+    expect(stepHeading()).toHaveTextContent("Financiación");
+  });
+
+  it("envia les dades de l'immoble, els camps condicionals i la ubicació aproximada", async () => {
+    const u = user();
+    await goToRealEstate(u);
+    await choose(u, /Finalidad/, "Construcción");
+    await choose(u, /Uso previsto/, "Alquiler");
+    await choose(u, /Tipo de activo/, "Mixto");
+    await u.type(screen.getByLabelText("Superficie (m²)"), "1.250,5");
+    await u.type(screen.getByLabelText("Viviendas previstas"), "12");
+    fireEvent.change(screen.getByLabelText(/Finalización estimada de las obras/), { target: { value: "2027-06-30" } });
+    fireEvent.change(screen.getByLabelText(/Inicio estimado del alquiler/), { target: { value: "2027-09-01" } });
+    act(() => clickMap(41.3879171, 2.1699187));
+    await u.click(continueButton());
+    await fillFunding(u);
+    await u.click(continueButton());
+
+    const realEstate = screen.getByRole("region", { name: "Inmueble" });
+    expect(realEstate).toHaveTextContent("Construcción · Alquiler · Mixto");
+    expect(realEstate).toHaveTextContent("Superficie1.250,5 m²");
+    expect(realEstate).toHaveTextContent("Viviendas previstas12");
+    expect(realEstate).toHaveTextContent("Finalización estimada de las obras30 de junio de 2027");
+    expect(realEstate).toHaveTextContent("Inicio estimado del alquiler1 de septiembre de 2027");
+    expect(realEstate).toHaveTextContent("Ubicación aproximada41,38792, 2,16992");
+
+    post.mockResolvedValue({ id: 100 });
+    await u.click(screen.getByRole("checkbox", { name: /Declaro que la información es veraz/ }));
+    await u.click(screen.getByRole("button", { name: "Enviar a revisión" }));
+
+    const form = post.mock.calls[0][1] as FormData;
+    expect(JSON.parse(form.get("metadata") as string).real_estate).toEqual({
+      purpose: "construction",
+      intended_use: "rental",
+      asset_type: "mixed",
+      surface_m2: "1250.50",
+      planned_housing_units: 12,
+      estimated_works_end: "2027-06-30",
+      estimated_rental_start: "2027-09-01",
+      public_latitude: 41.387917,
+      public_longitude: 2.169919,
+    });
+    expect(await screen.findByText("Oportunidad enviada a revisión")).toBeInTheDocument();
+  });
+
+  it("conserva les dades de l'immoble i la zona marcada en tornar enrere", async () => {
+    const u = user();
+    await goToRealEstate(u);
+    await fillRealEstate(u);
+    act(() => clickMap(41.5, 2.1));
+    await u.click(continueButton());
+    await u.click(screen.getByRole("button", { name: "Volver" }));
+
+    expect(screen.getByRole("button", { name: /Finalidad/ })).toHaveTextContent("Adquisición y rehabilitación");
+    expect(screen.getByRole("button", { name: /Tipo de activo/ })).toHaveTextContent("Comercial");
+    expect(screen.getByLabelText("Superficie (m²)")).toHaveValue("180");
+    expect(screen.getByText("Zona marcada: 41,50000, 2,10000")).toBeInTheDocument();
+  });
+
+  it("cancel·lar des del pas «Inmueble» no crea l'oportunitat", async () => {
+    const u = user();
+    await goToRealEstate(u);
+    await fillRealEstate(u);
+
+    await u.click(screen.getByRole("button", { name: "Cancelar" }));
+    await u.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Descartar" }));
+
+    expect(path()).toHaveTextContent(/^\/my-opportunities$/);
+    expect(post).not.toHaveBeenCalled();
+  });
+});
+
 describe("pas «Financiación»", () => {
   it("mostra el saldo disponible", async () => {
     const u = user();
@@ -309,7 +447,12 @@ describe("pas «Revisión» i enviament", () => {
     expect(general).toHaveTextContent("Adquisición y reforma de un local.");
     expect(general).toHaveTextContent("Sabadell, Barcelona, España");
     expect(general).toHaveTextContent("Imágenes1");
-    expect(screen.getByRole("region", { name: "Inmueble" })).toBeInTheDocument();
+    const realEstate = screen.getByRole("region", { name: "Inmueble" });
+    expect(realEstate).toHaveTextContent("Finalidad · Uso · TipoAdquisición y rehabilitación · Alquiler · Comercial");
+    expect(realEstate).toHaveTextContent("Superficie180 m²");
+    expect(realEstate).toHaveTextContent("Inicio estimado del alquilerSin indicar");
+    expect(realEstate).toHaveTextContent("Ubicación aproximadaSin indicar");
+    expect(realEstate).not.toHaveTextContent("Viviendas previstas");
     const funding = screen.getByRole("region", { name: "Financiación" });
     expect(funding).toHaveTextContent("Objetivo de financiación150.000,00 €");
     expect(funding).toHaveTextContent("Aportación mínima100,00 €");
@@ -363,6 +506,7 @@ describe("pas «Revisión» i enviament", () => {
     renderAt("/my-opportunities/new/real-estate");
     await fillGeneral(u, cover);
     await u.click(continueButton());
+    await fillRealEstate(u);
     await u.click(continueButton());
     await fillFunding(u, { initial: "5000" });
     await u.click(continueButton());
@@ -387,6 +531,7 @@ describe("pas «Revisión» i enviament", () => {
       minimum_contribution_cents: 10_000,
       deadline: "2099-01-31T22:59:00.000Z",
       initial_contribution_cents: 500_000,
+      real_estate: REAL_ESTATE_PAYLOAD,
     });
     expect(form.getAll("images").map((file) => (file as File).name)).toEqual([cover.name]);
 

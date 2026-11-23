@@ -155,6 +155,20 @@ const toCommitmentError = (error: unknown): CommitmentErrorKind => {
   }
 };
 
+// Dades de l'immoble en crear l'oportunitat (backend: RealEstateOpportunityCreate). Els decimals
+// van com a text perquè el backend els llegeix com a Decimal sense passar per coma flotant.
+export interface RealEstateCreate {
+  purpose: RealEstatePurpose;
+  intended_use: RealEstateIntendedUse;
+  asset_type: RealEstateAssetType;
+  surface_m2: string;
+  planned_housing_units: number | null;
+  estimated_works_end: string | null;
+  estimated_rental_start: string | null;
+  public_latitude: number | null;
+  public_longitude: number | null;
+}
+
 // Cos `metadata` de POST /api/opportunities (backend: OpportunityCreate). Les imatges van a part,
 // al mateix formulari multipart.
 export interface OpportunityCreateMetadata {
@@ -167,8 +181,8 @@ export interface OpportunityCreateMetadata {
   // ISO amb zona horària: el backend rebutja les dates sense zona.
   deadline: string;
   initial_contribution_cents: number | null;
-  // Dades pròpies de cada tipus; les defineixen els passos Inmueble (#66) i Empresa (#68).
-  real_estate?: Record<string, unknown>;
+  // Dades pròpies de cada tipus: les del pas Inmueble o les del pas Empresa (#68).
+  real_estate?: RealEstateCreate;
   business?: Record<string, unknown>;
 }
 

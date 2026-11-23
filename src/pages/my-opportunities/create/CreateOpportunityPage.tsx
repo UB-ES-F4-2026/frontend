@@ -16,7 +16,7 @@ import {
   type GeneralDraft,
   type GeneralErrors,
 } from "./opportunityDraft";
-import { OPPORTUNITY_TYPES, type TypeStepErrors } from "./opportunityTypes";
+import { EQUITY_TYPE, REAL_ESTATE_TYPE, type OpportunityTypeConfig, type TypeStepErrors } from "./opportunityTypes";
 import StepIndicator from "./StepIndicator";
 import GeneralInfoStep from "./GeneralInfoStep";
 import FundingStep from "./FundingStep";
@@ -28,6 +28,10 @@ interface CreateOpportunityPageProps {
   type: OpportunityType;
 }
 
+interface CreateOpportunityFormProps<Data> {
+  config: OpportunityTypeConfig<Data>;
+}
+
 const GENERAL_STEP = 0;
 const TYPE_STEP = 1;
 const FUNDING_STEP = 2;
@@ -35,10 +39,23 @@ const REVIEW_STEP = 3;
 
 const hasErrors = (errors: Partial<Record<string, string>>) => Object.values(errors).some(Boolean);
 
+// Camps que tenen un valor diferent entre dues versions de les dades del pas propi del tipus.
+const changedFields = (before: object, after: object) =>
+  Object.keys(after).filter(
+    (key) => (before as Record<string, unknown>)[key] !== (after as Record<string, unknown>)[key],
+  );
+
+// Cada tipus aporta el pas intermedi amb les seves pròpies dades.
+export default function CreateOpportunityPage({ type }: CreateOpportunityPageProps) {
+  return type === "real_estate"
+    ? <CreateOpportunityForm config={REAL_ESTATE_TYPE} />
+    : <CreateOpportunityForm config={EQUITY_TYPE} />;
+}
+
 // Formulari de creació en quatre passos (US06.1 i US06.1.2). Les dades viuen aquí, de manera que
 // tornar enrere o «Editar» des de la revisió no en perd cap.
-export default function CreateOpportunityPage({ type }: CreateOpportunityPageProps) {
-  const config = OPPORTUNITY_TYPES[type];
+function CreateOpportunityForm<Data extends object>({ config }: CreateOpportunityFormProps<Data>) {
+  const { type } = config;
   const TypeForm = config.step.Form;
   const steps = ["Información general", config.step.label, "Financiación", "Revisión"];
   const navigate = useNavigate();
@@ -189,8 +206,12 @@ export default function CreateOpportunityPage({ type }: CreateOpportunityPagePro
                 value={specific}
                 errors={specificErrors}
                 onChange={(value) => {
+                  setSpecificErrors((current) => {
+                    const next = { ...current };
+                    for (const field of changedFields(specific, value)) delete next[field];
+                    return next;
+                  });
                   setSpecific(value);
-                  setSpecificErrors({});
                 }}
               />
             )}
