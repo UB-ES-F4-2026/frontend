@@ -27,6 +27,10 @@ jobs:
         run: |
           bash -n scripts/deploy-ci.sh
           docker build --tag frontend-ci .
+      - name: Lint frontend
+        run: docker run --rm frontend-ci npm run lint
+      - name: Type check frontend
+        run: docker run --rm frontend-ci npm run typecheck
       - name: Compile production frontend
         run: docker run --rm frontend-ci npm run build
       - name: Run all frontend tests
@@ -52,6 +56,16 @@ jobs:
     needs: frontend-build
     runs-on: ubuntu-latest
     steps:
+      # main only receives release/* and hotfix/*; this check is already required on main.
+      - name: Check PR source branch
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            release/*|hotfix/*) ;;
+            *) echo "::error::Las PR hacia main solo pueden salir de release/* o hotfix/* (esta sale de $HEAD_REF)."; exit 1 ;;
+          esac
       - env:
           RESULT: ${{ needs.frontend-build.result }}
         run: test "$RESULT" = success
