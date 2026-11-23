@@ -3,6 +3,7 @@ import { fintechGet, fintechPost, ApiError, RequestStatus } from "../service/api
 import {
   commitmentNoun,
   insufficientFundsMessage,
+  INSUFFICIENT_FUNDS_MESSAGE,
   INVALID_AMOUNT_MESSAGE,
   type CommitmentNoun,
 } from "../pages/opportunities/dialogs/contributionAmount";
@@ -69,10 +70,10 @@ export interface RealEstateOpportunityGetResponse extends Opportunity {
 
 // Valors dels enums del backend (app/models/business_opportunity.py).
 export type BusinessSector =
-  | "fintech" | "industry" | "saas" | "health" | "biotech" | "cleantech" | "agritech"
-  | "foodtech" | "d2c" | "education" | "media" | "tourism" | "logistic" | "ai" | "other";
+  | "technology" | "industry" | "food_and_beverage" | "commerce"
+  | "health" | "energy" | "tourism_and_leisure" | "other_services";
 
-export type BusinessPhase = "pre_seed" | "seed" | "early" | "growth" | "late";
+export type BusinessPhase = "idea" | "launch" | "growth" | "consolidated";
 
 export interface Business {
   sector: BusinessSector;
@@ -170,6 +171,84 @@ const toCommitmentError = (error: unknown): CommitmentErrorKind => {
   }
 };
 
+// Dades de l'immoble en crear l'oportunitat (backend: RealEstateOpportunityCreate). Els decimals
+// van com a text perquè el backend els llegeix com a Decimal sense passar per coma flotant.
+export interface RealEstateCreate {
+  purpose: RealEstatePurpose;
+  intended_use: RealEstateIntendedUse;
+  asset_type: RealEstateAssetType;
+  surface_m2: string;
+  planned_housing_units: number | null;
+  estimated_works_end: string | null;
+  estimated_rental_start: string | null;
+  public_latitude: number | null;
+  public_longitude: number | null;
+}
+
+// Dades de l'empresa en crear l'oportunitat (backend: BusinessOpportunityCreate). La participació
+// oferta no s'envia: el backend la calcula a partir de l'objectiu i la valoració.
+export interface BusinessCreate {
+  sector: BusinessSector;
+  phase: BusinessPhase;
+  pre_investment_valuation_cents: number;
+}
+
+// Cos `metadata` de POST /api/opportunities (backend: OpportunityCreate). Les imatges van a part,
+// al mateix formulari multipart.
+export interface OpportunityCreateMetadata {
+  type: OpportunityType;
+  title: string;
+  description: string;
+  location: { municipality: string; province: string; country: string };
+  target_amount_cents: number;
+  minimum_contribution_cents: number;
+  // ISO amb zona horària: el backend rebutja les dates sense zona.
+  deadline: string;
+  initial_contribution_cents: number | null;
+  // Dades pròpies de cada tipus: les del pas Inmueble o les del pas Empresa.
+  real_estate?: RealEstateCreate;
+  business?: BusinessCreate;
+}
+
+export const CREATE_OPPORTUNITY_ERRORS = {
+  forbidden: "Necesitas una entidad promotora para crear oportunidades.",
+  insufficient_funds: INSUFFICIENT_FUNDS_MESSAGE,
+  not_reserved: "No se ha podido reservar tu aportación inicial. Inténtalo de nuevo.",
+  invalid_image: "Alguna imagen no es válida. Usa imágenes JPG, PNG o WebP de hasta 5 MB.",
+  invalid_data: "Algún dato de la oportunidad no es válido. Revísalo y vuelve a enviarla.",
+  unexpected: "No se ha podido enviar la oportunidad. Inténtalo de nuevo.",
+} as const;
+
+// Textos `detail` del backend (app/core/media.py) quan una imatge no és vàlida.
+const IMAGE_ERRORS = new Set([
+  "At least one image is required",
+  "Image exceeds the maximum size",
+  "Unsupported image format",
+  "Image content type does not match its content",
+]);
+
+const toCreateOpportunityError = (error: unknown): string => {
+  if (!(error instanceof ApiError)) return CREATE_OPPORTUNITY_ERRORS.unexpected;
+  switch (error.status) {
+    case 401:
+      // SessionManager ja porta al login: el formulari no mostra res.
+      return "";
+    case 403:
+      return CREATE_OPPORTUNITY_ERRORS.forbidden;
+    case 409:
+      // El saldo pot haver canviat des que es va validar el pas «Financiación».
+      return error.message === "Insufficient available balance"
+        ? CREATE_OPPORTUNITY_ERRORS.insufficient_funds
+        : CREATE_OPPORTUNITY_ERRORS.not_reserved;
+    case 422:
+      return IMAGE_ERRORS.has(error.message)
+        ? CREATE_OPPORTUNITY_ERRORS.invalid_image
+        : CREATE_OPPORTUNITY_ERRORS.invalid_data;
+    default:
+      return CREATE_OPPORTUNITY_ERRORS.unexpected;
+  }
+};
+
 const isCents = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 
@@ -228,6 +307,11 @@ interface OpportunityState {
     type?: OpportunityType,
   ) => Promise<CommitmentOutcome | null>;
   resetCommitment: () => void;
+  createStatus: "idle" | RequestStatus;
+  createDetails: string;
+  // Crea l'oportunitat pendent de revisió. Mai llança: retorna null si falla.
+  createOpportunity: (metadata: OpportunityCreateMetadata, images: File[]) => Promise<Opportunity | null>;
+  resetCreation: () => void;
 }
 
 export const useOpportunityStore = create<OpportunityState>((set, get) => ({
@@ -353,4 +437,24 @@ export const useOpportunityStore = create<OpportunityState>((set, get) => ({
         }
     },
     resetCommitment: () => set({ commitStatus: "idle", commitError: null, commitDetails: "" }),
+    createStatus: "idle",
+    createDetails: "",
+    createOpportunity: async (metadata, images) => {
+        // Evita crear dues oportunitats amb un doble clic a «Enviar a revisión».
+        if (get().createStatus === "loading") return null;
+        set({ createStatus: "loading", createDetails: "" });
+        const body = new FormData();
+        body.append("metadata", JSON.stringify(metadata));
+        // L'ordre es conserva: la primera imatge és la portada.
+        images.forEach((image) => body.append("images", image));
+        try {
+            const created = await fintechPost<Opportunity>("/opportunities", body);
+            set({ createStatus: "success", createDetails: "" });
+            return created;
+        } catch (error: unknown) {
+            set({ createStatus: "error", createDetails: toCreateOpportunityError(error) });
+            return null;
+        }
+    },
+    resetCreation: () => set({ createStatus: "idle", createDetails: "" }),
 }));

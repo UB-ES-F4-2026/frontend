@@ -48,7 +48,7 @@ const buildDetail = (overrides: Partial<BusinessOpportunityGetResponse> = {}): B
     location: "Sabadell, Barcelona, España",
   },
   business: {
-    sector: "cleantech",
+    sector: "energy",
     phase: "growth",
     pre_investment_valuation_cents: 2_700_000_00,
     equity_offered: "10.00000000000000000000000000",

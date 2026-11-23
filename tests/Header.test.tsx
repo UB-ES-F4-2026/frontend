@@ -104,3 +104,27 @@ describe("Header: accés a «Mi saldo»", () => {
     expect(link).toHaveAttribute("aria-current", "page");
   });
 });
+
+describe("Header: accés a «Mis oportunidades» (US06.1)", () => {
+  const investor = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z", is_promoter: false };
+  const promoter = { ...investor, id: 2, is_promoter: true };
+
+  it("no l’ofereix als visitants ni als comptes sense entitat promotora", () => {
+    renderHeader();
+    expect(navigation().queryByRole("link", { name: "Mis oportunidades" })).not.toBeInTheDocument();
+
+    act(() => useAuthStore.setState({ active_account: investor }));
+    expect(navigation().getByRole("link", { name: "Mi saldo" })).toBeInTheDocument();
+    expect(navigation().queryByRole("link", { name: "Mis oportunidades" })).not.toBeInTheDocument();
+  });
+
+  it("l’ofereix a l’entitat promotora i navega a /my-opportunities", async () => {
+    renderHeader();
+    act(() => useAuthStore.setState({ active_account: promoter }));
+    const link = navigation().getByRole("link", { name: "Mis oportunidades" });
+    expect(link).toHaveAttribute("href", "/my-opportunities");
+
+    await userEvent.setup().click(link);
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/my-opportunities$/);
+  });
+});
