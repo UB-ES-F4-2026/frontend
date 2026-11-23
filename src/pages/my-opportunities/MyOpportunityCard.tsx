@@ -1,15 +1,12 @@
 import { Link } from "react-router";
-import { formatEuroCents } from "../../service/money";
 import type { PromoterOpportunity } from "../../store/useOpportunityStore";
-import { formatRatio } from "../opportunities/common/opportunityFormat";
-import FundingStatusChip from "./FundingStatusChip";
-import { detailPath, formatShortDate, fundingRatio, publicationLabel, TYPE_LABELS } from "./myOpportunitiesFormat";
+import OpportunityProgress from "../opportunities/common/OpportunityProgress";
+import { detailPath, formatShortDate, TYPE_LABELS } from "../opportunities/common/opportunityStatus";
+import { publicationLabel } from "./myOpportunitiesFormat";
 
 // Una oportunitat de l'entitat: títol (enllaç al detall si és pública), tipus, data, estat,
 // progrés del finançament, nombre d'inversors i data límit.
 export default function MyOpportunityCard({ opportunity }: { opportunity: PromoterOpportunity }) {
-  const ratio = fundingRatio(opportunity);
-
   return (
     <article
       aria-labelledby={`my-opportunity-${opportunity.id}`}
@@ -34,23 +31,11 @@ export default function MyOpportunityCard({ opportunity }: { opportunity: Promot
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-col gap-2">
-        <FundingStatusChip status={opportunity.funding_status} />
-        <div
-          role="progressbar"
-          aria-label="Financiación"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.min(Math.round(ratio * 100), 100)}
-          className="h-2 w-full overflow-hidden rounded-full bg-muted/20"
-        >
-          <div className="h-full rounded-full bg-warning" style={{ width: `${Math.min(ratio, 1) * 100}%` }} />
-        </div>
-        <p className="text-xs text-muted">
-          <span className="font-semibold text-foreground">{formatEuroCents(opportunity.committed_cents)}</span>
-          {` de ${formatEuroCents(opportunity.target_amount_cents)} · ${formatRatio(ratio)}`}
-        </p>
-      </div>
+      <OpportunityProgress
+        status={opportunity.funding_status}
+        committedCents={opportunity.committed_cents}
+        targetCents={opportunity.target_amount_cents}
+      />
 
       <dl className="grid grid-cols-2 gap-4 text-sm lg:flex lg:flex-col lg:items-end lg:gap-2 lg:text-right">
         <div>

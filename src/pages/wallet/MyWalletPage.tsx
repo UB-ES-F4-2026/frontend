@@ -156,6 +156,14 @@ export default function MyWalletPage() {
           </Card>
         </section>
 
+        {/* El saldo comprometido es reparteix entre les inversions de l'usuari (US05.1). */}
+        <Link
+          to="/my-investments"
+          className="w-fit text-sm font-semibold text-warning underline underline-offset-4 hover:text-warning/80"
+        >
+          Ver mis inversiones <span aria-hidden="true">→</span>
+        </Link>
+
         <div className="flex flex-wrap items-center gap-3">
           <Link
             to="/my-balance/deposit"

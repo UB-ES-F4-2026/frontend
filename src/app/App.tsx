@@ -14,6 +14,7 @@ import RequireAuth from "../components/RequireAuth";
 import RealEstateDetail from "../pages/opportunities/real-estate/RealEstateDetail";
 import BusinessDetail from "../pages/opportunities/business/BusinessDetail";
 import MyOpportunitiesPage from "../pages/my-opportunities/MyOpportunitiesPage";
+import MyInvestmentsPage from "../pages/investments/MyInvestmentsPage";
 import CreateOpportunityPage from "../pages/my-opportunities/create/CreateOpportunityPage";
 
 import { useAuthStore } from "../store/useAuthStore";
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/my-balance/withdraw" element={<RequireAuth><WalletWithdrawalPage /></RequireAuth>} />
           <Route path="/opportunities/real-estate/:id" element={<RealEstateDetail />} />
           <Route path="/opportunities/equity/:id" element={<BusinessDetail />} />
+          <Route path="/my-investments" element={<RequireAuth><MyInvestmentsPage /></RequireAuth>} />
           <Route path="/my-opportunities" element={<RequireAuth promoter><MyOpportunitiesPage /></RequireAuth>} />
           <Route
             path="/my-opportunities/new/real-estate"
