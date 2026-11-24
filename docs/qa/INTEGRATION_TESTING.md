@@ -17,6 +17,20 @@ construeixen el formulari o catàleg, el store i el servei HTTP reals, i
 comproven petició, resposta i error recuperable. Els fluxos nous han de seguir
 aquest patró, no copiar els tests unitaris que simulen el store.
 
+Dues llibreries de tercers no es poden executar a jsdom i se substitueixen
+només on cal, dient-ho al comentari de capçalera del fitxer: Stripe Elements
+(`tests/WalletDeposit.integration.test.tsx`) i `react-leaflet`
+(`tests/CreateOpportunity.integration.test.tsx`, amb
+`tests/support/reactLeaflet.tsx`). Cap mòdul de `src/` se simula.
+
+Quan cal tota l'aplicació (rutes privades, canvi de compte), es munta
+`<SessionManager />` i `<App />` reals, com a
+`tests/PrivateRoutes.integration.test.tsx`.
+
+Les proves d'integració segueixen les mateixes regles d'independència que les
+unitàries ([`UNIT_TESTING.md`](UNIT_TESTING.md#independència)) i la CI les
+executa en ordre aleatori.
+
 Per cada flux que consumeix API, cobreix com a mínim:
 
 1. La petició: ruta, mètode, payload o consulta i credencials quan apliqui.
