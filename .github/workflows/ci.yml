@@ -27,7 +27,9 @@ jobs:
         run: docker build --tag frontend-ci .
       - name: Run unit tests with coverage
         run: |
-          docker create --name frontend-unit-coverage frontend-ci npm run test:unit:coverage
+          # Ordre aleatori: una prova que depèn d'una altra falla aquí. Vitest escriu la
+          # llavor al registre («Running tests with seed») i --sequence.seed la reprodueix.
+          docker create --name frontend-unit-coverage frontend-ci npm run test:unit:coverage -- --sequence.shuffle
           docker start -a frontend-unit-coverage
           docker cp frontend-unit-coverage:/app/coverage ./coverage
       - name: Upload frontend coverage report
@@ -59,7 +61,7 @@ jobs:
       - name: Compile production frontend
         run: docker run --rm frontend-ci npm run build
       - name: Run frontend integration tests
-        run: docker run --rm frontend-ci npm run test:integration
+        run: docker run --rm frontend-ci npm run test:integration -- --sequence.shuffle
       - name: Build production image
         run: docker build --file Dockerfile.production --tag frontend-production-ci .
       - name: Validate Caddy configuration
