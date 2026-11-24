@@ -9,8 +9,8 @@ Manténs les imatges del frontend, el Caddyfile i la CI d'aquest repositori. Les
 | `Dockerfile` | Imatge de desenvolupament: Node 22, `npm ci`, `npm run dev` amb Vite i proxy `/api` cap a `API_PROXY_TARGET` |
 | `Dockerfile.production` | Build de Vite i imatge final `caddy:2-alpine` que serveix `dist/` a `/srv`, amb `HEALTHCHECK` a `/healthz` |
 | `Caddyfile` | Port 8080, `/healthz`, `/api` i `/api/*` cap a `backend:8000`, resta amb fallback SPA a `index.html`. Sense TLS: el proxy del host el gestiona |
-| `.github/workflows/ci.yml` | Build de la imatge, `npm run build`, `npm test`, imatge de producció, `caddy validate`, smoke test, publicació a GHCR per digest en push a `main`, i `deploy` si `DEPLOY_ENABLED` és `true` |
-| `scripts/deploy-ci.sh` | Validació d'entrades i SSH al servidor per executar `deploy.py` amb el digest publicat |
+| `.github/workflows/ci.yml` | Build de la imatge, `npm run build`, `npm test`, imatge de producció, `caddy validate`, smoke test, publicació a GHCR per digest en push a `release/*` i `hotfix/*`, `deploy-staging` des de `release/*` si `STAGING_DEPLOY_ENABLED` és `true`, i `deploy` des de `main` si `DEPLOY_ENABLED` és `true` |
+| `scripts/deploy-ci.sh` | Validació d'entrades i SSH al servidor per executar `deploy.py` amb el digest publicat, a producció o a staging segons `DEPLOY_ENVIRONMENT` |
 | `CI.md` | Com reproduir la CI en local |
 
 ## Invariants que la CI comprova
@@ -19,7 +19,8 @@ Manténs les imatges del frontend, el Caddyfile i la CI d'aquest repositori. Les
 - `/` i qualsevol ruta de l'aplicació (`/login`) tornen `index.html` amb `<div id="root">`.
 - `/healthz` respon abans que res més; el `HEALTHCHECK` de la imatge en depèn.
 - Les accions de GitHub van fixades per SHA amb el comentari de versió; `persist-credentials: false`.
-- El job de `deploy` rep només el digest que `publish` ha provat.
+- Els jobs de desplegament reben només un digest que `publish` ha provat.
+- Un push a `main` no construeix cap imatge: `promote` comprova que `main` és idèntic a la branca fusionada (`HEAD^2`) i desplega el digest publicat per a aquell commit. Si la imatge no existeix o el codi no coincideix, no es desplega res. Si la PR es fusiona abans que acabi la CI de la branca, cal tornar a executar el workflow de `main` quan acabi.
 
 Un canvi al Caddyfile, als Dockerfiles o al workflow conserva aquests invariants o actualitza el test que els comprova al mateix PR, explicant per què.
 

@@ -7,13 +7,21 @@ export interface LoginPayload {
   password: string;
 }
 
-// Contracte del registre actual: només correu i contrasenya.
+// Contracte de PromotingEntityRegistration (backend#68): només la raó social és obligatòria.
+export interface PromotingEntityRegistration {
+  legal_name: string;
+  founding_year: number | null;
+  location: string | null;
+}
+
+// Contracte de RegisterRequest. Sense `promoting_entity` es crea un compte normal.
 export interface RegisterPayload {
   email: string;
   first_name: string;
   last_name: string;
   phone: string;
   password: string;
+  promoting_entity?: PromotingEntityRegistration;
 }
 
 // Crear el compte retorna aquestes dades, però no un token de sessió.
@@ -21,6 +29,8 @@ export interface RegisteredUser {
   id: number;
   email: string;
   created_at: string;
+  // El backend (UserRead) sempre l'envia; absent es tracta com un compte sense entitat promotora.
+  is_promoter?: boolean;
 }
 
 // El token viu a la cookie HttpOnly; el store només conserva l’usuari.
@@ -63,21 +73,34 @@ const getLoginErrorMessage = (error: unknown): string => {
 
 // No mostrem missatges, valors ni context retornats pel servidor: poden contenir contrasenyes.
 const getRegistrationErrorMessage = (error: unknown): string => {
+  const body = error instanceof ApiError ? error.details : undefined;
+  const details = typeof body === "object" && body !== null && "detail" in body ? body.detail : undefined;
   if (error instanceof ApiError && error.status === 409) {
+    // «Registration conflict» no indica que el correu existeixi: no ho afirmem.
+    if (details === "Registration conflict") {
+      return "No se ha podido crear la cuenta. Inténtalo de nuevo en unos instantes.";
+    }
     return "Ya existe una cuenta con este correo electrónico. Inicia sesión o utiliza otro correo.";
   }
   if (error instanceof ApiError && error.status === 422) {
     const labels: Record<string, string> = {
       first_name: "nombre", last_name: "apellidos", email: "correo electrónico", phone: "teléfono", password: "contraseña",
     };
-    const body = error.details;
-    const details = typeof body === "object" && body !== null && "detail" in body ? body.detail : undefined;
+    // Els errors de l'entitat arriben niats: loc = ["body", "promoting_entity", camp].
+    const entityLabels: Record<string, string> = {
+      legal_name: "razón social", founding_year: "año de fundación", location: "ubicación",
+    };
     const fields = new Set<string>();
     if (Array.isArray(details)) {
       for (const detail of details) {
         if (typeof detail !== "object" || detail === null || !Array.isArray(detail.loc)) continue;
-        const [source, field] = detail.loc;
-        if (source === "body" && typeof field === "string" && Object.hasOwn(labels, field)) fields.add(labels[field]);
+        const [source, field, nested] = detail.loc;
+        if (source !== "body" || typeof field !== "string") continue;
+        if (Object.hasOwn(labels, field)) {
+          fields.add(labels[field]);
+        } else if (field === "promoting_entity" && typeof nested === "string" && Object.hasOwn(entityLabels, nested)) {
+          fields.add(entityLabels[nested]);
+        }
       }
     }
     return fields.size ? `Revisa los siguientes campos: ${[...fields].join(", ")}.` : "Revisa los datos del formulario.";
@@ -142,6 +165,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         last_name: userData.last_name,
         phone: userData.phone,
         password: userData.password,
+        // Un registre normal no inclou el camp: la petició és la mateixa que abans de US01.9.
+        ...(userData.promoting_entity && {
+          promoting_entity: {
+            legal_name: userData.promoting_entity.legal_name.trim(),
+            founding_year: userData.promoting_entity.founding_year,
+            // Una ubicació buida s'envia com a null perquè el backend no guardi "".
+            location: userData.promoting_entity.location?.trim() || null,
+          },
+        }),
       });
 
       // No modifiquem active_account: el registre no autentica l’usuari.

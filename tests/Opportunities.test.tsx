@@ -8,7 +8,7 @@ import Opportunities from "../src/pages/opportunities/Opportunities";
 const state = vi.hoisted(() => ({
   status: "idle",
   details: "",
-  opportunities: [] as any[],
+  opportunities: [] as ReturnType<typeof buildOpportunity>[],
   fetchOpportunities: vi.fn(),
 }));
 
@@ -98,15 +98,21 @@ const STARTUP = buildOpportunity({
 const TERM_DISTANCE_3 = "Startp EcoLogistcs S"; // 3 borrados: u, i, L
 const TERM_DISTANCE_4 = "Startp EcoLogstcs S"; // 4 borrados: u, i, i, L
 
-// Sustituye fetchOpportunities por un "backend" que filtra el catálogo según el término.
+// Sustituye fetchOpportunities por un "backend" que filtra el catálogo por tipo y por término.
+// Como el backend, la búsqueda solo actúa sobre las del tipo pedido: primero las que contienen
+// el término; si no hay ninguna, las de nombre parecido.
 const installFakeBackend = (catalog: ReturnType<typeof buildOpportunity>[]) => {
   state.status = "success";
   state.opportunities = catalog;
-  state.fetchOpportunities.mockImplementation((term?: string | null) => {
+  state.fetchOpportunities.mockImplementation((term?: string | null, type?: string | null) => {
+    const ofType = type ? catalog.filter((item) => item.type === type) : catalog;
+    const contains = term
+      ? ofType.filter((item) => item.title.toLowerCase().includes(term.toLowerCase()))
+      : ofType;
     state.status = "success";
-    state.opportunities = term
-      ? catalog.filter((item) => matchesName(item.title, term))
-      : catalog;
+    state.opportunities = !term || contains.length > 0
+      ? contains
+      : ofType.filter((item) => matchesName(item.title, term));
   });
 };
 
@@ -114,6 +120,13 @@ const getSearchInput = () =>
   screen.getByPlaceholderText("Buscar oportunidades...") as HTMLInputElement;
 
 const getSearchButton = () => screen.getByRole("button", { name: "Buscar" });
+
+const getTypeSelect = () => screen.getByRole("button", { name: /Tipo de activo/ });
+
+const selectType = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
+  await user.click(getTypeSelect());
+  await user.click(screen.getByRole("option", { name: label }));
+};
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -263,8 +276,9 @@ describe("Opportunities", () => {
       state.opportunities = [buildOpportunity({ deadline: inDays(10) })];
       const { container } = renderOpportunities();
 
-      // La financiación se representa mediante la anchura de la barra.
-      expect(container.querySelector("[style]")).toHaveStyle({ width: "33.33333333333333%" });
+      // La financiación se representa mediante la anchura de la barra. Se busca la barra y no
+      // cualquier [style]: el selector de tipo de activo también renderiza elementos con estilo.
+      expect(container.querySelector(".bg-warning[style]")).toHaveStyle({ width: "33.33333333333333%" });
       expect(screen.getByText("10 días restantes")).toBeInTheDocument();
     });
 
@@ -286,7 +300,7 @@ describe("Opportunities", () => {
       ];
       const { container } = renderOpportunities();
 
-      expect(container.querySelector("[style]")).toHaveStyle({ width: "100%" });
+      expect(container.querySelector(".bg-warning[style]")).toHaveStyle({ width: "100%" });
     });
 
     it("muestra la imagen de portada cuando existe", () => {
@@ -356,7 +370,7 @@ describe("Opportunities", () => {
 
       // Carga inicial (1) + búsqueda (2)
       expect(state.fetchOpportunities).toHaveBeenCalledTimes(2);
-      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Edificio");
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Edificio", null);
     });
 
     it("al pulsar 'Buscar' NO se borra el contenido del campo", async () => {
@@ -376,7 +390,7 @@ describe("Opportunities", () => {
       await user.type(getSearchInput(), "Startup{Enter}");
 
       expect(state.fetchOpportunities).toHaveBeenCalledTimes(2);
-      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Startup");
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Startup", null);
       expect(getSearchInput()).toHaveValue("Startup");
     });
 
@@ -387,7 +401,7 @@ describe("Opportunities", () => {
       await user.click(getSearchButton());
 
       expect(state.fetchOpportunities).toHaveBeenCalledTimes(2);
-      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("");
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("", null);
     });
 
     it("permite lanzar varias búsquedas consecutivas con términos distintos", async () => {
@@ -396,12 +410,12 @@ describe("Opportunities", () => {
 
       await user.type(getSearchInput(), "Edificio");
       await user.click(getSearchButton());
-      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Edificio");
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Edificio", null);
 
       await user.clear(getSearchInput());
       await user.type(getSearchInput(), "Startup");
       await user.click(getSearchButton());
-      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Startup");
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Startup", null);
     });
 
     it("al limpiar el campo (Escape) se recarga el listado completo", async () => {
@@ -412,7 +426,7 @@ describe("Opportunities", () => {
       await user.keyboard("{Escape}");
 
       expect(getSearchInput()).toHaveValue("");
-      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("");
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("", null);
     });
 
     it("el buscador sigue visible mientras se cargan las oportunidades", () => {
@@ -466,7 +480,7 @@ describe("Opportunities", () => {
       await user.type(getSearchInput(), "Zzzzzzzzzz");
       await user.click(getSearchButton());
 
-      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Zzzzzzzzzz");
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Zzzzzzzzzz", null);
       expect(screen.getByText(NO_SEARCH_MATCH)).toBeInTheDocument();
       expect(screen.queryByText(NO_PUBLISHED)).not.toBeInTheDocument();
     });
@@ -491,7 +505,7 @@ describe("Opportunities", () => {
 
       await user.click(getSearchButton());
 
-      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("");
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("", null);
       expect(screen.getByText(NO_PUBLISHED)).toBeInTheDocument();
       expect(screen.queryByText(NO_SEARCH_MATCH)).not.toBeInTheDocument();
     });
@@ -530,9 +544,21 @@ describe("Opportunities", () => {
       expect(screen.queryByText(NO_PUBLISHED)).not.toBeInTheDocument();
     });
 
-    it.todo(
-      "tras una búsqueda sin resultados, al limpiar el campo y recargar el listado vacío vuelve a mostrarse 'no hay oportunidades publicadas'",
-    );
+    it("tras una búsqueda sin resultados, al limpiar el campo y recargar el listado vacío vuelve a mostrarse 'no hay oportunidades publicadas'", async () => {
+      const user = userEvent.setup();
+      state.status = "success";
+      state.opportunities = [];
+      renderOpportunities();
+
+      await user.type(getSearchInput(), "Zzzzzzzzzz{Enter}");
+      expect(screen.getByText(NO_SEARCH_MATCH)).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("", null);
+      expect(screen.getByText(NO_PUBLISHED)).toBeInTheDocument();
+      expect(screen.queryByText(NO_SEARCH_MATCH)).not.toBeInTheDocument();
+    });
   });
 
   describe("contador de oportunidades encontradas", () => {
@@ -605,7 +631,7 @@ describe("Opportunities", () => {
       await user.click(getSearchButton());
       view.rerender(page());
 
-      expect(state.fetchOpportunities).toHaveBeenLastCalledWith(TERM_DISTANCE_3);
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith(TERM_DISTANCE_3, null);
       expect(screen.getByText("Startup EcoLogistics SL")).toBeInTheDocument();
       expect(
         screen.queryByText("Edificio Histórico L'Eixample"),
@@ -627,7 +653,7 @@ describe("Opportunities", () => {
       await user.click(getSearchButton());
       view.rerender(page());
 
-      expect(state.fetchOpportunities).toHaveBeenLastCalledWith(TERM_DISTANCE_4);
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith(TERM_DISTANCE_4, null);
       expect(screen.queryByText("Startup EcoLogistics SL")).not.toBeInTheDocument();
       expect(
         screen.queryByText("Edificio Histórico L'Eixample"),
@@ -650,6 +676,208 @@ describe("Opportunities", () => {
       view.rerender(page());
 
       expect(screen.getByText("Startup EcoLogistics SL")).toBeInTheDocument();
+    });
+  });
+
+  describe("filtro por tipo de activo", () => {
+    const NO_SEARCH_MATCH =
+      "No se encontraron oportunidades que coincidan con los criterios de búsqueda.";
+
+    const PISO_GIRONA = buildOpportunity({
+      id: 3,
+      type: "real_estate",
+      title: "Piso en Girona",
+      location: "Girona",
+    });
+
+    const CERVECERA_GIRONA = buildOpportunity({
+      id: 4,
+      type: "equity",
+      title: "Cervecera artesana en Girona",
+      location: "Girona",
+    });
+
+    const CATALOG = [PISO_GIRONA, CERVECERA_GIRONA, EDIFICIO, STARTUP];
+
+    it("muestra 'Tipo de activo' con 'Todos' seleccionado y carga todas las oportunidades", () => {
+      installFakeBackend(CATALOG);
+      renderOpportunities();
+
+      expect(getTypeSelect()).toHaveTextContent("Todos");
+      expect(state.fetchOpportunities).toHaveBeenCalledWith();
+      expect(screen.getByText("4 oportunidades encontradas")).toBeInTheDocument();
+    });
+
+    it("ofrece las opciones 'Todos', 'Inmobiliaria' y 'Empresarial'", async () => {
+      const user = userEvent.setup();
+      renderOpportunities();
+
+      await user.click(getTypeSelect());
+
+      expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+        "Todos",
+        "Inmobiliaria",
+        "Empresarial",
+      ]);
+    });
+
+    it("al seleccionar un tipo filtra sin pulsar 'Buscar' y actualiza el recuento", async () => {
+      const user = userEvent.setup();
+      installFakeBackend(CATALOG);
+      const view = renderOpportunities();
+
+      await selectType(user, "Empresarial");
+      view.rerender(page());
+
+      expect(state.fetchOpportunities).toHaveBeenCalledTimes(2);
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("", "equity");
+      expect(getTypeSelect()).toHaveTextContent("Empresarial");
+      expect(screen.getByText("Cervecera artesana en Girona")).toBeInTheDocument();
+      expect(screen.getByText("Startup EcoLogistics SL")).toBeInTheDocument();
+      expect(screen.queryByText("Piso en Girona")).not.toBeInTheDocument();
+      expect(screen.queryByText("Edificio Histórico L'Eixample")).not.toBeInTheDocument();
+      expect(screen.getByText("2 oportunidades encontradas")).toBeInTheDocument();
+    });
+
+    it("al seleccionar 'Inmobiliaria' solo muestra las inmobiliarias", async () => {
+      const user = userEvent.setup();
+      installFakeBackend(CATALOG);
+      const view = renderOpportunities();
+
+      await selectType(user, "Inmobiliaria");
+      view.rerender(page());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("", "real_estate");
+      expect(screen.getByText("Piso en Girona")).toBeInTheDocument();
+      expect(screen.getByText("Edificio Histórico L'Eixample")).toBeInTheDocument();
+      expect(screen.queryByText("Cervecera artesana en Girona")).not.toBeInTheDocument();
+      expect(screen.getByText("2 oportunidades encontradas")).toBeInTheDocument();
+    });
+
+    it("al volver a 'Todos' se muestran de nuevo todas las oportunidades", async () => {
+      const user = userEvent.setup();
+      installFakeBackend(CATALOG);
+      const view = renderOpportunities();
+
+      await selectType(user, "Empresarial");
+      await selectType(user, "Todos");
+      view.rerender(page());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("", null);
+      expect(screen.getByText("4 oportunidades encontradas")).toBeInTheDocument();
+    });
+
+    it("al cambiar el tipo después de buscar 'girona' se conserva la búsqueda", async () => {
+      const user = userEvent.setup();
+      installFakeBackend(CATALOG);
+      const view = renderOpportunities();
+
+      await user.type(getSearchInput(), "girona");
+      await user.click(getSearchButton());
+      view.rerender(page());
+      expect(screen.getByText("2 oportunidades encontradas")).toBeInTheDocument();
+
+      await selectType(user, "Empresarial");
+      view.rerender(page());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("girona", "equity");
+      expect(getSearchInput()).toHaveValue("girona");
+      expect(screen.getByText("Cervecera artesana en Girona")).toBeInTheDocument();
+      expect(screen.queryByText("Piso en Girona")).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/^1 oportunidad(es)? encontrad(a|as)$/),
+      ).toBeInTheDocument();
+    });
+
+    it("al cambiar el tipo se usa la búsqueda aplicada, no el texto escrito sin buscar", async () => {
+      const user = userEvent.setup();
+      installFakeBackend(CATALOG);
+      renderOpportunities();
+
+      await user.type(getSearchInput(), "girona");
+      await user.click(getSearchButton());
+      await user.type(getSearchInput(), " centro");
+      await selectType(user, "Empresarial");
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("girona", "equity");
+    });
+
+    it("al buscar con un tipo seleccionado se conserva el tipo", async () => {
+      const user = userEvent.setup();
+      installFakeBackend(CATALOG);
+      const view = renderOpportunities();
+
+      await selectType(user, "Empresarial");
+      await user.type(getSearchInput(), "girona");
+      await user.click(getSearchButton());
+      view.rerender(page());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("girona", "equity");
+      expect(getTypeSelect()).toHaveTextContent("Empresarial");
+      expect(screen.getByText("Cervecera artesana en Girona")).toBeInTheDocument();
+      expect(screen.queryByText("Piso en Girona")).not.toBeInTheDocument();
+    });
+
+    it("con un tipo seleccionado, los nombres parecidos solo se buscan entre las de ese tipo", async () => {
+      const user = userEvent.setup();
+      installFakeBackend(CATALOG);
+      const view = renderOpportunities();
+
+      await selectType(user, "Empresarial");
+      await user.type(getSearchInput(), `${TERM_DISTANCE_3}{Enter}`);
+      view.rerender(page());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith(TERM_DISTANCE_3, "equity");
+      expect(screen.getByText("Startup EcoLogistics SL")).toBeInTheDocument();
+      expect(
+        screen.getByText(/^1 oportunidad(es)? encontrad(a|as)$/),
+      ).toBeInTheDocument();
+    });
+
+    it("al limpiar la búsqueda se conserva el tipo seleccionado", async () => {
+      const user = userEvent.setup();
+      installFakeBackend(CATALOG);
+      renderOpportunities();
+
+      await selectType(user, "Empresarial");
+      await user.type(getSearchInput(), "girona");
+      await user.keyboard("{Escape}");
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("", "equity");
+      expect(getTypeSelect()).toHaveTextContent("Empresarial");
+    });
+
+    it("sin coincidencias para el tipo y la búsqueda, muestra 0 y el mensaje de búsqueda sin coincidencias", async () => {
+      const user = userEvent.setup();
+      installFakeBackend(CATALOG);
+      const view = renderOpportunities();
+
+      await user.type(getSearchInput(), "Edificio Histórico L'Eixample{Enter}");
+      await selectType(user, "Empresarial");
+      view.rerender(page());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("Edificio Histórico L'Eixample", "equity");
+      expect(screen.getByText("0 oportunidades encontradas")).toBeInTheDocument();
+      expect(screen.getByText(NO_SEARCH_MATCH)).toBeInTheDocument();
+      expect(
+        screen.queryByText("¡Aún no hay oportunidades publicadas!"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("sin oportunidades del tipo seleccionado, sin búsqueda, muestra 0 y el mensaje de búsqueda sin coincidencias", async () => {
+      const user = userEvent.setup();
+      installFakeBackend([PISO_GIRONA, EDIFICIO]);
+      const view = renderOpportunities();
+
+      await selectType(user, "Empresarial");
+      view.rerender(page());
+
+      expect(state.fetchOpportunities).toHaveBeenLastCalledWith("", "equity");
+      expect(screen.getByText("0 oportunidades encontradas")).toBeInTheDocument();
+      expect(screen.getByText(NO_SEARCH_MATCH)).toBeInTheDocument();
+      expect(
+        screen.queryByText("¡Aún no hay oportunidades publicadas!"),
+      ).not.toBeInTheDocument();
     });
   });
 });

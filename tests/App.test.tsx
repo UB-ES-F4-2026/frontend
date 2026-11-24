@@ -1,4 +1,5 @@
 import { act, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/app/App";
@@ -27,6 +28,22 @@ vi.mock("../src/pages/opportunities/Opportunities", () => ({
 }));
 vi.mock("../src/pages/wallet/MyWalletPage", () => ({
   default: () => <h1>Pàgina simulada: saldo</h1>,
+}));
+vi.mock("../src/pages/investments/MyInvestmentsPage", () => ({
+  default: () => <h1>Pàgina simulada: inversions</h1>,
+}));
+vi.mock("../src/pages/wallet/WalletDepositPage", () => ({
+  default: () => <h1>Pàgina simulada: ingrés</h1>,
+}));
+vi.mock("../src/pages/wallet/WalletWithdrawalPage", () => ({
+  default: () => <h1>Pàgina simulada: retirada</h1>,
+}));
+
+vi.mock("../src/pages/my-opportunities/MyOpportunitiesPage", () => ({
+  default: () => <h1>Pàgina simulada: mis oportunidades</h1>,
+}));
+vi.mock("../src/pages/my-opportunities/create/CreateOpportunityPage", () => ({
+  default: ({ type }: { type: string }) => <h1>Pàgina simulada: crear {type}</h1>,
 }));
 
 vi.mock("../src/pages/legal/TermsOfUse", () => ({
@@ -120,5 +137,115 @@ describe("ruta privada /my-balance", () => {
     expect(screen.queryByRole("heading", { name: "Pàgina simulada: saldo" })).not.toBeInTheDocument();
     act(() => useAuthStore.setState({ active_account: account, sessionChecked: true }));
     expect(await screen.findByRole("heading", { name: "Pàgina simulada: saldo" })).toBeInTheDocument();
+  });
+});
+
+describe("ruta privada /my-balance/deposit (US04.2, criteri 6)", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it("mostra «Ingresar fondos» al client autenticat", () => {
+    useAuthStore.setState({ active_account: account, sessionChecked: true });
+    renderApp("/my-balance/deposit");
+    expect(within(screen.getByRole("main")).getByRole("heading", { name: "Pàgina simulada: ingrés" })).toBeInTheDocument();
+  });
+
+  it("porta el visitant al login sense mostrar la pàgina", async () => {
+    useAuthStore.setState({ sessionChecked: true });
+    renderApp("/my-balance/deposit");
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
+    expect(screen.queryByRole("heading", { name: "Pàgina simulada: ingrés" })).not.toBeInTheDocument();
+  });
+
+  it("en recarregar espera la sessió recuperada en lloc d’expulsar l’usuari", async () => {
+    renderApp("/my-balance/deposit");
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/my-balance\/deposit$/);
+    expect(screen.queryByRole("heading", { name: "Pàgina simulada: ingrés" })).not.toBeInTheDocument();
+    act(() => useAuthStore.setState({ active_account: account, sessionChecked: true }));
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: ingrés" })).toBeInTheDocument();
+  });
+});
+
+describe("ruta privada /my-balance/withdraw (US04.3, criteri 8)", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it("mostra «Retirar fondos» al client autenticat", () => {
+    useAuthStore.setState({ active_account: account, sessionChecked: true });
+    renderApp("/my-balance/withdraw");
+    expect(within(screen.getByRole("main")).getByRole("heading", { name: "Pàgina simulada: retirada" })).toBeInTheDocument();
+  });
+
+  it("porta el visitant al login sense mostrar la pàgina", async () => {
+    useAuthStore.setState({ sessionChecked: true });
+    renderApp("/my-balance/withdraw");
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
+    expect(screen.queryByRole("heading", { name: "Pàgina simulada: retirada" })).not.toBeInTheDocument();
+  });
+
+  it("en recarregar espera la sessió recuperada en lloc d’expulsar l’usuari", async () => {
+    renderApp("/my-balance/withdraw");
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/my-balance\/withdraw$/);
+    expect(screen.queryByRole("heading", { name: "Pàgina simulada: retirada" })).not.toBeInTheDocument();
+    act(() => useAuthStore.setState({ active_account: account, sessionChecked: true }));
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: retirada" })).toBeInTheDocument();
+  });
+});
+
+describe("ruta privada /my-investments (US05.1)", () => {
+  const account = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z" };
+
+  it("mostra «Mis inversiones» al client autenticat, tingui o no entitat promotora", () => {
+    useAuthStore.setState({ active_account: account, sessionChecked: true });
+    renderApp("/my-investments");
+    expect(within(screen.getByRole("main")).getByRole("heading", { name: "Pàgina simulada: inversions" })).toBeInTheDocument();
+  });
+
+  it("porta el visitant al login sense mostrar la pàgina", async () => {
+    useAuthStore.setState({ sessionChecked: true });
+    renderApp("/my-investments");
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
+    expect(screen.queryByRole("heading", { name: "Pàgina simulada: inversions" })).not.toBeInTheDocument();
+  });
+});
+
+describe("rutes de l'entitat promotora (US06.1)", () => {
+  const promoter = { id: 2, email: "promotora@example.com", created_at: "2026-10-27T10:00:00Z", is_promoter: true };
+  const investor = { id: 1, email: "user@example.com", created_at: "2026-10-27T10:00:00Z", is_promoter: false };
+
+  it.each([
+    ["/my-opportunities", "Pàgina simulada: mis oportunidades"],
+    ["/my-opportunities/new/real-estate", "Pàgina simulada: crear real_estate"],
+    ["/my-opportunities/new/equity", "Pàgina simulada: crear equity"],
+  ])("mostra %s a l'entitat promotora", (path, heading) => {
+    useAuthStore.setState({ active_account: promoter, sessionChecked: true });
+    renderApp(path);
+    expect(within(screen.getByRole("main")).getByRole("heading", { name: heading })).toBeInTheDocument();
+  });
+
+  it.each(["/my-opportunities", "/my-opportunities/new/real-estate", "/my-opportunities/new/equity"])(
+    "a un compte sense entitat promotora que obre %s li mostra l'avís amb «Volver al inicio» (US05.2)",
+    async (path) => {
+      const user = userEvent.setup();
+      useAuthStore.setState({ active_account: investor, sessionChecked: true });
+      renderApp(path);
+
+      const main = within(screen.getByRole("main"));
+      expect(main.getByRole("heading", { name: "Sección solo para entidades promotoras" })).toBeInTheDocument();
+      expect(main.queryByRole("heading", { name: /Pàgina simulada: (mis oportunidades|crear)/ })).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(new RegExp(`^${path}$`));
+
+      await user.click(main.getByRole("link", { name: "Volver al inicio" }));
+      expect(await screen.findByRole("heading", { name: "Pàgina simulada: inici" })).toBeInTheDocument();
+      expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/$/);
+    },
+  );
+
+  it.each(["/my-opportunities", "/my-opportunities/new/real-estate"])("porta el visitant que obre %s al login", async (path) => {
+    useAuthStore.setState({ sessionChecked: true });
+    renderApp(path);
+    expect(await screen.findByRole("heading", { name: "Pàgina simulada: login" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent(/^\/login$/);
   });
 });

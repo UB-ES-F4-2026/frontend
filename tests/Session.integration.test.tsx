@@ -85,16 +85,17 @@ describe("TR05: sessió amb cookie", () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
     await userEvent.setup().click(screen.getByRole("button", { name: "Cerrar sesión" }));
     expect(fetchMock).toHaveBeenLastCalledWith("/api/auth/logout", expect.objectContaining({ method: "POST", credentials: "include" }));
+    // El logout és asíncron: esperem el resultat en lloc de suposar que ja ha acabat.
+    await waitFor(() => expect(screen.getByLabelText("Ruta actual")).toHaveTextContent("/login"));
     expect(useAuthStore.getState().active_account).toBeNull();
-    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent("/login");
   });
 
   it("el logout amb sessió ja caducada també acaba al login", async () => {
     fetchMock.mockResolvedValueOnce(json(account));
     await renderSession();
     await userEvent.setup().click(screen.getByRole("button", { name: "Cerrar sesión" }));
+    await waitFor(() => expect(screen.getByLabelText("Ruta actual")).toHaveTextContent("/login"));
     expect(useAuthStore.getState().active_account).toBeNull();
-    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent("/login");
   });
 
   it("un error del servidor al logout no es presenta com un tancament correcte", async () => {
@@ -102,7 +103,7 @@ describe("TR05: sessió amb cookie", () => {
     await renderSession();
     fetchMock.mockResolvedValueOnce(json({ detail: "Unavailable" }, 500));
     await userEvent.setup().click(screen.getByRole("button", { name: "Cerrar sesión" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("No se ha podido cerrar sesión");
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se ha podido cerrar sesión");
     expect(useAuthStore.getState().active_account).toEqual(account);
     expect(screen.getByLabelText("Ruta actual")).toHaveTextContent("/opportunities");
   });
@@ -126,5 +127,62 @@ describe("TR05: sessió amb cookie", () => {
     resolve(json(account));
     await pending;
     expect(useAuthStore.getState().active_account).toBeNull();
+  });
+});
+
+describe("Sessió: càrrega i errors recuperables", () => {
+  it("un error de xarxa en comprovar la sessió deixa el visitant on era, sense cap avís", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await renderSession();
+    expect(useAuthStore.getState().active_account).toBeNull();
+    // La comprovació es dona per acabada: les rutes privades ja poden decidir.
+    expect(useAuthStore.getState().sessionChecked).toBe(true);
+    expect(screen.getByRole("link", { name: "Iniciar sesión" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent("/opportunities");
+  });
+
+  it("tancar sessió bloqueja el botó mentre espera i envia un sol POST sense cos", async () => {
+    fetchMock.mockResolvedValueOnce(json(account));
+    await renderSession();
+    let finish!: (response: Response) => void;
+    fetchMock.mockReturnValueOnce(new Promise<Response>((done) => { finish = done; }));
+    await userEvent.setup().dblClick(screen.getByRole("button", { name: "Cerrar sesión" }));
+
+    expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeDisabled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [url, options] = fetchMock.mock.calls[1];
+    expect(url).toBe("/api/auth/logout");
+    expect(options.method).toBe("POST");
+    expect(options.credentials).toBe("include");
+    expect(options.body).toBeUndefined();
+    // Fins que el servidor no ho confirma, la sessió continua oberta.
+    expect(useAuthStore.getState().active_account).toEqual(account);
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent("/opportunities");
+
+    await act(async () => { finish(new Response(null, { status: 204 })); });
+    await waitFor(() => expect(screen.getByLabelText("Ruta actual")).toHaveTextContent("/login"));
+    expect(screen.getByRole("link", { name: "Registrarse" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("si el logout falla per xarxa conserva la sessió i es pot tornar a provar", async () => {
+    fetchMock.mockResolvedValueOnce(json(account));
+    await renderSession();
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Cerrar sesión" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se ha podido cerrar sesión. Inténtalo de nuevo.");
+    expect(useAuthStore.getState().active_account).toEqual(account);
+    expect(screen.getByLabelText("Ruta actual")).toHaveTextContent("/opportunities");
+    expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeEnabled();
+
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await user.click(screen.getByRole("button", { name: "Cerrar sesión" }));
+    await waitFor(() => expect(screen.getByLabelText("Ruta actual")).toHaveTextContent("/login"));
+    expect(useAuthStore.getState().active_account).toBeNull();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

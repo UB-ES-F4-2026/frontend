@@ -1,5 +1,5 @@
-import { Card, MenuItem } from "@heroui/react";
-import { Opportunity, OpportunityType } from "../../../store/useOpportunityStore";
+import { Card } from "@heroui/react";
+import { Opportunity } from "../../../store/useOpportunityStore";
 import { useNavigate } from "react-router";
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useState } from "react";
@@ -32,12 +32,9 @@ const OpportunityCard = ({opportunity} : OpportunityCardProps) => {
     const [showLoginAlert, setShowLoginAlert] = useState(false);
     
     const handleOpportunityClick = () => {
-        if(!account){
+        // El detall empresarial és públic; l'immobiliari encara demana sessió.
+        if(opportunityType === "real_estate" && !account){
             setShowLoginAlert(true);
-            return;
-        }
-        if(opportunityType !== "real_estate"){
-            alert("Actualmente solo se pueden ver detalles de oportunidades inmobiliarias.");
             return;
         }
         navigate(`/opportunities/${opportunityPrefix}/${opportunity.id}`);

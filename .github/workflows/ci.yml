@@ -3,7 +3,7 @@ name: Frontend CI
 on:
   push:
   pull_request:
-    branches: [main]
+    branches: [dev, main]
   workflow_dispatch:
 
 permissions:
@@ -11,10 +11,37 @@ permissions:
 
 concurrency:
   group: frontend-ci-${{ github.workflow }}-${{ github.ref }}
-  # Never cancel a main workflow while it is mutating the server.
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # Never cancel a main or release workflow while it is mutating the server.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/') }}
 
 jobs:
+  frontend-unit-coverage:
+    name: Frontend unit tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Build frontend test image
+        run: docker build --tag frontend-ci .
+      - name: Run unit tests with coverage
+        run: |
+          # Ordre aleatori: una prova que depèn d'una altra falla aquí. Vitest escriu la
+          # llavor al registre («Running tests with seed») i --sequence.seed la reprodueix.
+          docker create --name frontend-unit-coverage frontend-ci npm run test:unit:coverage -- --sequence.shuffle
+          docker start -a frontend-unit-coverage
+          docker cp frontend-unit-coverage:/app/coverage ./coverage
+      - name: Upload frontend coverage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-unit-coverage
+          path: coverage
+          if-no-files-found: error
+      - name: Remove temporary coverage container
+        if: always()
+        run: docker rm -f frontend-unit-coverage || true
+
   frontend-build:
     name: Frontend Docker and Vite build
     runs-on: ubuntu-latest
@@ -27,10 +54,14 @@ jobs:
         run: |
           bash -n scripts/deploy-ci.sh
           docker build --tag frontend-ci .
+      - name: Lint frontend
+        run: docker run --rm frontend-ci npm run lint
+      - name: Type check frontend
+        run: docker run --rm frontend-ci npm run typecheck
       - name: Compile production frontend
         run: docker run --rm frontend-ci npm run build
-      - name: Run all frontend tests
-        run: docker run --rm frontend-ci npm test
+      - name: Run frontend integration tests
+        run: docker run --rm frontend-ci npm run test:integration -- --sequence.shuffle
       - name: Build production image
         run: docker build --file Dockerfile.production --tag frontend-production-ci .
       - name: Validate Caddy configuration
@@ -49,17 +80,29 @@ jobs:
   required-checks:
     name: Frontend required checks
     if: always()
-    needs: frontend-build
+    needs: [frontend-unit-coverage, frontend-build]
     runs-on: ubuntu-latest
     steps:
+      # main only receives release/* and hotfix/*; this check is already required on main.
+      - name: Check PR source branch
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          case "$HEAD_REF" in
+            release/*|hotfix/*) ;;
+            *) echo "::error::Las PR hacia main solo pueden salir de release/* o hotfix/* (esta sale de $HEAD_REF)."; exit 1 ;;
+          esac
       - env:
-          RESULT: ${{ needs.frontend-build.result }}
-        run: test "$RESULT" = success
+          UNIT: ${{ needs.frontend-unit-coverage.result }}
+          INTEGRATION: ${{ needs.frontend-build.result }}
+        run: test "$UNIT" = success && test "$INTEGRATION" = success
 
   publish:
     name: Publish frontend image
     needs: required-checks
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.required-checks.result == 'success'
+    # main never builds: it deploys the image published from the merged release/* or hotfix/* branch.
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/')) && needs.required-checks.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -78,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           image="ghcr.io/${GITHUB_REPOSITORY,,}:$GITHUB_SHA"
-          docker build --file Dockerfile.production --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag "$image" .
+          docker build --file Dockerfile.production --build-arg VITE_STRIPE_PUBLISHABLE_KEY="${{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}" --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag "$image" .
           docker run --rm "$image" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
           docker run -d --name frontend-release-smoke -p 127.0.0.1:18080:8080 "$image"
           trap 'docker rm -f frontend-release-smoke; docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
@@ -107,10 +150,67 @@ jobs:
           printf 'image=%s\n' "$digest" >> "$GITHUB_OUTPUT"
           printf '### Frontend image\nCommit: `%s`\n\n`%s`\n' "$GITHUB_SHA" "$digest" >> "$GITHUB_STEP_SUMMARY"
 
+  promote:
+    name: Find tested frontend image
+    needs: required-checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.required-checks.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          # The merge commit and both parents, to compare main with the merged branch.
+          fetch-depth: 2
+      - name: Resolve digest published for the merged branch
+        id: image
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          source_sha="$(git rev-parse --verify --quiet 'HEAD^2')" || {
+            echo "::error::main no es un merge commit: no hay ninguna rama fusionada cuya imagen desplegar"
+            exit 1
+          }
+          git diff --quiet "$source_sha" HEAD || {
+            echo "::error::main no coincide con el commit fusionado $source_sha: no se despliega nada"
+            exit 1
+          }
+
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:$source_sha"
+          docker pull "$image" || {
+            echo "::error::No hay imagen publicada para $source_sha. Espera a que termine la CI de la rama fusionada y vuelve a ejecutar este workflow."
+            exit 1
+          }
+
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          digest="$(
+            docker image inspect "$image" |
+              jq -r --arg prefix "$repository@sha256:" \
+                '.[0].RepoDigests[] | select(startswith($prefix))' |
+              head -n 1
+          )"
+
+          [[ "$digest" =~ ^ghcr.io/ub-es-f4-2026/frontend@sha256:[a-f0-9]{64}$ ]] || {
+            echo "::error::No se ha encontrado el digest publicado en GHCR"
+            exit 1
+          }
+
+          printf 'image=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          printf '### Frontend image\nCommit fusionado: `%s`\n\n`%s`\n' "$source_sha" "$digest" >> "$GITHUB_STEP_SUMMARY"
+
   deploy:
     name: Deploy frontend
-    needs: [required-checks, publish]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true' && needs.required-checks.result == 'success' && needs.publish.result == 'success'
+    environment: production
+    needs: [required-checks, promote]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true' && needs.required-checks.result == 'success' && needs.promote.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
@@ -121,6 +221,31 @@ jobs:
           persist-credentials: false
       - name: Deploy exact published digest
         env:
+          COMPONENT: frontend
+          IMAGE: ${{ needs.promote.outputs.image }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: bash scripts/deploy-ci.sh
+
+  deploy-staging:
+    name: Deploy frontend to staging
+    environment: staging
+    needs: [required-checks, publish]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/') && vars.STAGING_DEPLOY_ENABLED == 'true' && needs.required-checks.result == 'success' && needs.publish.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Deploy exact published digest to staging
+        env:
+          DEPLOY_ENVIRONMENT: staging
           COMPONENT: frontend
           IMAGE: ${{ needs.publish.outputs.image }}
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}

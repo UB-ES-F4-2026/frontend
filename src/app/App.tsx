@@ -8,8 +8,14 @@ import PrivacyPolicy from "../pages/legal/PrivacyPolicy";
 import Header from "../components/Header";
 import Opportunities from "../pages/opportunities/Opportunities";
 import MyWalletPage from "../pages/wallet/MyWalletPage";
+import WalletDepositPage from "../pages/wallet/WalletDepositPage";
+import WalletWithdrawalPage from "../pages/wallet/WalletWithdrawalPage";
 import RequireAuth from "../components/RequireAuth";
 import RealEstateDetail from "../pages/opportunities/real-estate/RealEstateDetail";
+import BusinessDetail from "../pages/opportunities/business/BusinessDetail";
+import MyOpportunitiesPage from "../pages/my-opportunities/MyOpportunitiesPage";
+import MyInvestmentsPage from "../pages/investments/MyInvestmentsPage";
+import CreateOpportunityPage from "../pages/my-opportunities/create/CreateOpportunityPage";
 
 import { useAuthStore } from "../store/useAuthStore";
 
@@ -28,7 +34,20 @@ export default function App() {
           <Route path="/legal/politica-de-privacidad" element={<PrivacyPolicy />} />
           <Route path="/opportunities" element={<Opportunities />} />
           <Route path="/my-balance" element={<RequireAuth><MyWalletPage /></RequireAuth>} />
+          <Route path="/my-balance/deposit" element={<RequireAuth><WalletDepositPage /></RequireAuth>} />
+          <Route path="/my-balance/withdraw" element={<RequireAuth><WalletWithdrawalPage /></RequireAuth>} />
           <Route path="/opportunities/real-estate/:id" element={<RealEstateDetail />} />
+          <Route path="/opportunities/equity/:id" element={<BusinessDetail />} />
+          <Route path="/my-investments" element={<RequireAuth><MyInvestmentsPage /></RequireAuth>} />
+          <Route path="/my-opportunities" element={<RequireAuth promoter><MyOpportunitiesPage /></RequireAuth>} />
+          <Route
+            path="/my-opportunities/new/real-estate"
+            element={<RequireAuth promoter><CreateOpportunityPage key="real_estate" type="real_estate" /></RequireAuth>}
+          />
+          <Route
+            path="/my-opportunities/new/equity"
+            element={<RequireAuth promoter><CreateOpportunityPage key="equity" type="equity" /></RequireAuth>}
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
