@@ -24,6 +24,28 @@ Per cada comportament nou o canviat, afegeix:
 Les proves han de ser deterministes: usa dades pròpies, rellotges falsos i mocks
 explícits. No depenguis del nombre de dades compartides ni de l'ordre de xarxa.
 
+## Independència
+
+Cap prova pot dependre d'una altra. Una prova ha de passar executada sola, en
+qualsevol ordre i repetida, i no pot deixar res que canviï el resultat d'una
+altra.
+
+- Els stores de Zustand són únics per fitxer i no es restableixen sols:
+  `useXStore.setState(useXStore.getInitialState(), true)` a `beforeEach`.
+- `vi.resetAllMocks()` i no `vi.clearAllMocks()`, que conserva les respostes
+  `mockResolvedValueOnce` pendents d'una prova anterior.
+- El que es canvia de global es restaura a `afterEach`: `vi.unstubAllGlobals()`,
+  `vi.useRealTimers()`, `localStorage`, oients de `window`.
+- Cap variable de mòdul assignada dins d'una prova.
+
+La CI executa les proves unitàries i d'integració amb `--sequence.shuffle`, que
+barreja fitxers i proves. Vitest escriu la llavor al registre; per reproduir un
+error d'ordre en local:
+
+```bash
+npx vitest run --sequence.shuffle --sequence.seed=<llavor>
+```
+
 ## Què no és una prova unitària
 
 Un recorregut entre frontend i backend és E2E. Una prova que uneix component,

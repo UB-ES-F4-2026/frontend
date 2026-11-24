@@ -52,3 +52,13 @@ noves són `tests/*.integration.test.tsx`: uneixen component, store, router i
 `src/service/api.ts`, i només simulen `fetch`. Cada flux cobreix payload,
 càrrega, èxit i error recuperable. Un E2E es reserva per recorreguts crítics
 que travessen els dos repositoris.
+
+## Proves funcionals
+
+Abans d'implementar o canviar un criteri d'acceptació, llegeix
+[`docs/qa/FUNCTIONAL_TESTING.md`](docs/qa/FUNCTIONAL_TESTING.md). Cada història
+té un flux de Playwright a `e2e/flows/` on cada criteri és un `test.step`; el
+flux registra el seu usuari i no depèn de cap altre. La fila del criteri a
+[`docs/qa/TRACEABILITY.md`](docs/qa/TRACEABILITY.md) s'actualitza al mateix
+canvi. Si l'aplicació no fa el que diu el criteri, no s'escriu un pas que
+fixi el comportament incorrecte: s'obre una issue.

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 export const registerAuthFlow = () => {
   test.describe("Flujo de Autenticación (Registro, Login y Sesión)", () => {
-    test("completa el ciclo de registro en 2 pasos, login, persistencia y logout", async ({ page }) => {
+    test("completa el ciclo de registro en 2 pasos, login, persistencia y logout", { tag: "@smoke" }, async ({ page }) => {
       // Generamos un correo único por ejecución para evitar colisiones (409) si se reintenta
       const uniqueEmail = `maria.e2e.${Date.now()}@example.com`;
       const password = "Password123!";

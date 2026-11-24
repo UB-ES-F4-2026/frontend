@@ -3,13 +3,12 @@ import type { Opportunity } from "../../src/store/useOpportunityStore";
 
 export const registerRealEstateInvestmentFlow = () => {
   test.describe("Flujo de Oportunidades, Detalle Inmobiliario e Inversión", () => {
-    test("intenta abrir una oportunidad empresarial sin sesión, inicia sesión desde el modal, accede a una inmobiliaria, pulsa invertir e interactúa con el mapa", async ({
+    test("intenta abrir una oportunidad inmobiliaria sin sesión, inicia sesión desde el modal, accede a ella, pulsa invertir e interactúa con el mapa", async ({
       page,
     }) => {
       const uniqueEmail = `inversor.e2e.${Date.now()}@example.com`;
       const password = "Password123!";
 
-      let equityTitle = "";
       let realEstateTitle = "";
       let realEstateId = 0;
       let searchTerm = "";
@@ -30,7 +29,6 @@ export const registerRealEstateInvestmentFlow = () => {
         const response = await opportunitiesResponsePromise;
         const opportunities = (await response.json()) as Opportunity[];
 
-        const equityOpp = opportunities.find((o) => o.type === "equity");
         const realEstateOpp =
           opportunities.find(
             (o) =>
@@ -40,22 +38,18 @@ export const registerRealEstateInvestmentFlow = () => {
           ) ?? opportunities.find((o) => o.type === "real_estate");
 
         expect(
-          equityOpp,
-          "Debe existir al menos una oportunidad empresarial (equity) en la BD"
-        ).toBeDefined();
-        expect(
           realEstateOpp,
           "Debe existir al menos una oportunidad inmobiliaria (real_estate) en la BD"
         ).toBeDefined();
 
-        equityTitle = equityOpp!.title;
         realEstateTitle = realEstateOpp!.title;
         realEstateId = realEstateOpp!.id;
         searchTerm = realEstateTitle.split(/\s+/)[0];
       });
 
-      await test.step("2. Pulsar en una oportunidad empresarial sin sesión y abrir el modal", async () => {
-        await page.getByText(equityTitle).first().click();
+      await test.step("2. Pulsar en una oportunidad inmobiliaria sin sesión y abrir el modal", async () => {
+        // Des de la US02.2.2 el detall empresarial és públic: el modal només surt en les immobiliàries.
+        await page.getByText(realEstateTitle, { exact: true }).first().click();
 
         await expect(
           page.getByText("Inicia sesión para ver los detalles")
