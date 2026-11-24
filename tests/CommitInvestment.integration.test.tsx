@@ -87,8 +87,8 @@ describe("Inversión empresarial: integración de detalle, store y API", () => {
         expect(JSON.parse(options?.body as string)).toEqual({ amount_cents: 100_000 });
         return Promise.resolve(jsonResponse({
           commitment: { id: 1, opportunity_id: 44, amount_cents: 100_000, created_at: "2026-11-23T12:00:00Z", estimated_equity: "0.03333333333333333333333333333" },
-          opportunity: { id: 44, target_amount_cents: 300_000_00, committed_cents: 184_600_00 },
-          wallet: { available_cents: 1_400_00, committed_cents: 100_000, currency: "eur" },
+          opportunity: { id: 44, target_amount_cents: 300_000_00, committed_cents: 185_500_00 },
+          wallet: { available_cents: 500_00, committed_cents: 100_000, currency: "eur" },
         }));
       }
       throw new Error(`Petición inesperada: ${url}`);
@@ -100,6 +100,8 @@ describe("Inversión empresarial: integración de detalle, store y API", () => {
     await user.click(within(dialog).getByRole("button", { name: "Confirmar inversión" }));
 
     expect(await screen.findByRole("dialog", { name: "Inversión comprometida" })).toHaveTextContent("1.000,00 €");
+    // 1.500,00 € disponibles menys els 1.000,00 € compromesos: el saldo que retorna el backend.
+    expect(screen.getByRole("dialog", { name: "Inversión comprometida" })).toHaveTextContent("Tu saldo disponible ahora es de 500,00 €.");
     expect(fetchMock).toHaveBeenCalledWith("/api/opportunities/44/commitments", expect.objectContaining({ method: "POST" }));
   });
 
@@ -113,8 +115,8 @@ describe("Inversión empresarial: integración de detalle, store y API", () => {
           ? jsonResponse({ detail: "Temporary failure" }, 503)
           : jsonResponse({
               commitment: { id: 1, opportunity_id: 44, amount_cents: 100_000, created_at: "2026-11-23T12:00:00Z", estimated_equity: "0.03333333333333333333333333333" },
-              opportunity: { id: 44, target_amount_cents: 300_000_00, committed_cents: 184_600_00 },
-              wallet: { available_cents: 1_400_00, committed_cents: 100_000, currency: "eur" },
+              opportunity: { id: 44, target_amount_cents: 300_000_00, committed_cents: 185_500_00 },
+              wallet: { available_cents: 500_00, committed_cents: 100_000, currency: "eur" },
             }));
       }
       throw new Error(`Petición inesperada: ${url}`);
