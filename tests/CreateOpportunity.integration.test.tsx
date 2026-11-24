@@ -9,6 +9,13 @@ import { useOpportunityStore } from "../src/store/useOpportunityStore";
 import { useWalletStore } from "../src/store/useWalletStore";
 import { clickMap } from "./support/reactLeaflet";
 
+// Omple un camp enganxant el text: teclejar-lo caràcter a caràcter fa que aquests formularis
+// llargs s'acostin al temps límit quan la màquina de la CI va carregada.
+const fill = async (user: ReturnType<typeof userEvent.setup>, field: HTMLElement, text: string) => {
+  await user.click(field);
+  await user.paste(text);
+};
+
 // Formulari de creació, «Mis oportunidades», stores i src/service/api.ts reals: l'únic límit de
 // xarxa simulat és fetch. A part hi ha dues peces del navegador que jsdom no té:
 // - react-leaflet: Leaflet necessita mides reals i descarregar tessel·les d'OpenStreetMap. Se
@@ -189,11 +196,11 @@ const choose = async (user: User, field: RegExp, option: string) => {
 
 // Cada pas s'omple només amb el que exigeix per poder continuar.
 const fillGeneral = async (user: User, images: File[]) => {
-  await user.type(screen.getByLabelText("Título"), "Local comercial en Sabadell");
-  await user.type(screen.getByLabelText("Descripción"), "Adquisición y reforma de un local.");
-  await user.type(screen.getByLabelText("Municipio"), "Sabadell");
-  await user.type(screen.getByLabelText("Provincia"), "Barcelona");
-  await user.type(screen.getByLabelText("País"), "España");
+  await fill(user, screen.getByLabelText("Título"), "Local comercial en Sabadell");
+  await fill(user, screen.getByLabelText("Descripción"), "Adquisición y reforma de un local.");
+  await fill(user, screen.getByLabelText("Municipio"), "Sabadell");
+  await fill(user, screen.getByLabelText("Provincia"), "Barcelona");
+  await fill(user, screen.getByLabelText("País"), "España");
   await user.upload(screen.getByLabelText("Añadir imágenes"), images);
   await user.click(continueButton());
 };
@@ -203,22 +210,22 @@ const fillRealEstate = async (user: User) => {
   await choose(user, /Finalidad/, "Adquisición y rehabilitación");
   await choose(user, /Uso previsto/, "Alquiler");
   await choose(user, /Tipo de activo/, "Comercial");
-  await user.type(screen.getByLabelText("Superficie (m²)"), "180");
+  await fill(user, screen.getByLabelText("Superficie (m²)"), "180");
 };
 
 const fillBusiness = async (user: User) => {
   expect(stepHeading()).toHaveTextContent("Empresa");
   await choose(user, /Sector/, "Alimentación y bebidas");
   await choose(user, /Fase de la empresa/, "Crecimiento");
-  await user.type(screen.getByLabelText(/Valoración previa a la inversión/), "1350000");
+  await fill(user, screen.getByLabelText(/Valoración previa a la inversión/), "1350000");
 };
 
 const fillFunding = async (user: User, { initial = "" } = {}) => {
   expect(stepHeading()).toHaveTextContent("Financiación");
-  await user.type(screen.getByLabelText(/Objetivo de financiación/), "150000");
-  await user.type(screen.getByLabelText(/Aportación mínima/), "100");
+  await fill(user, screen.getByLabelText(/Objetivo de financiación/), "150000");
+  await fill(user, screen.getByLabelText(/Aportación mínima/), "100");
   fireEvent.change(screen.getByLabelText("Fecha límite de financiación"), { target: { value: DEADLINE_MADRID } });
-  if (initial) await user.type(screen.getByLabelText(/Tu aportación inicial/), initial);
+  if (initial) await fill(user, screen.getByLabelText(/Tu aportación inicial/), initial);
 };
 
 // Arriba a «Revisión» d'una oportunitat immobiliària amb 5.000,00 € d'aportació inicial.
