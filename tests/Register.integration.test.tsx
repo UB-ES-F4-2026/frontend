@@ -5,6 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Register from "../src/pages/auth/Register";
 import { useAuthStore } from "../src/store/useAuthStore";
 
+// Omple un camp enganxant el text: teclejar-lo caràcter a caràcter fa que aquests formularis
+// llargs s'acostin al temps límit quan la màquina de la CI va carregada.
+const fill = async (user: ReturnType<typeof userEvent.setup>, field: HTMLElement, text: string) => {
+  await user.click(field);
+  await user.paste(text);
+};
+
 // Component, store i servei reals: només simulem fetch, sense crear comptes.
 const fetchMock = vi.fn();
 beforeEach(() => {
@@ -32,22 +39,22 @@ describe("Registre: una única petició amb les dades dels dos passos (#30)", ()
 
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(fetchMock).not.toHaveBeenCalled();
-    await user.type(screen.getByLabelText("Nombre", { exact: true }), "  María  ");
-    await user.type(screen.getByLabelText("Apellidos"), "  Prueba-López  ");
-    await user.type(screen.getByLabelText("Correo electrónico"), "Maria@Example.COM");
+    await fill(user, screen.getByLabelText("Nombre", { exact: true }), "  María  ");
+    await fill(user, screen.getByLabelText("Apellidos"), "  Prueba-López  ");
+    await fill(user, screen.getByLabelText("Correo electrónico"), "Maria@Example.COM");
     if (country !== "España (+34)") {
       await user.click(screen.getByRole("button", { name: /País y prefijo/ }));
       await user.click(screen.getByRole("option", { name: country }));
     }
-    await user.type(screen.getByLabelText("Número", { exact: true }), phone);
+    await fill(user, screen.getByLabelText("Número", { exact: true }), phone);
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await user.click(screen.getByRole("button", { name: "Volver atrás" }));
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
     expect(fetchMock).not.toHaveBeenCalled();
 
-    await user.type(screen.getByLabelText("Contraseña", { exact: true }), " Password1 ");
-    await user.type(screen.getByLabelText("Confirma la contraseña"), " Password1 ");
+    await fill(user, screen.getByLabelText("Contraseña", { exact: true }), " Password1 ");
+    await fill(user, screen.getByLabelText("Confirma la contraseña"), " Password1 ");
     await user.click(screen.getByRole("checkbox", { name: "Acepto las condiciones de uso." }));
     await user.click(screen.getByRole("checkbox", { name: "He leído la política de privacidad." }));
     await user.dblClick(screen.getByRole("button", { name: "Crear cuenta" }));
@@ -102,13 +109,13 @@ describe("Registre: errors del servidor sense perdre dades (#30)", () => {
         <Route path="/login" element={<h1>Inicio de sesión simulado</h1>} />
       </Routes>
     </MemoryRouter>);
-    await user.type(screen.getByLabelText("Nombre", { exact: true }), "María");
-    await user.type(screen.getByLabelText("Apellidos"), "Prueba-López");
-    await user.type(screen.getByLabelText("Correo electrónico"), "maria@example.com");
-    await user.type(screen.getByLabelText("Número", { exact: true }), "612 345 678");
+    await fill(user, screen.getByLabelText("Nombre", { exact: true }), "María");
+    await fill(user, screen.getByLabelText("Apellidos"), "Prueba-López");
+    await fill(user, screen.getByLabelText("Correo electrónico"), "maria@example.com");
+    await fill(user, screen.getByLabelText("Número", { exact: true }), "612 345 678");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
-    await user.type(screen.getByLabelText("Contraseña", { exact: true }), password);
-    await user.type(screen.getByLabelText("Confirma la contraseña"), password);
+    await fill(user, screen.getByLabelText("Contraseña", { exact: true }), password);
+    await fill(user, screen.getByLabelText("Confirma la contraseña"), password);
     await user.click(screen.getByRole("checkbox", { name: "Acepto las condiciones de uso." }));
     await user.click(screen.getByRole("checkbox", { name: "He leído la política de privacidad." }));
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
@@ -128,7 +135,7 @@ describe("Registre: errors del servidor sense perdre dades (#30)", () => {
     expect(screen.getByLabelText("Número", { exact: true })).toHaveValue("612 345 678");
     expect(screen.getByRole("button", { name: /País y prefijo/ })).toHaveTextContent("España (+34)");
     await user.clear(screen.getByLabelText("Correo electrónico"));
-    await user.type(screen.getByLabelText("Correo electrónico"), "maria.nueva@example.com");
+    await fill(user, screen.getByLabelText("Correo electrónico"), "maria.nueva@example.com");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveValue(password);
     expect(screen.getByLabelText("Confirma la contraseña")).toHaveValue(password);
@@ -165,15 +172,15 @@ describe("Registre amb entitat promotora: `promoting_entity` dins de l'única pe
   </MemoryRouter>);
 
   const fillPersonalDetails = async (user: ReturnType<typeof userEvent.setup>) => {
-    await user.type(screen.getByLabelText("Nombre", { exact: true }), "María");
-    await user.type(screen.getByLabelText("Apellidos"), "Prueba-López");
-    await user.type(screen.getByLabelText("Correo electrónico"), "maria@example.com");
-    await user.type(screen.getByLabelText("Número", { exact: true }), "612 345 678");
+    await fill(user, screen.getByLabelText("Nombre", { exact: true }), "María");
+    await fill(user, screen.getByLabelText("Apellidos"), "Prueba-López");
+    await fill(user, screen.getByLabelText("Correo electrónico"), "maria@example.com");
+    await fill(user, screen.getByLabelText("Número", { exact: true }), "612 345 678");
   };
 
   const fillAccessDetails = async (user: ReturnType<typeof userEvent.setup>) => {
-    await user.type(screen.getByLabelText("Contraseña", { exact: true }), password);
-    await user.type(screen.getByLabelText("Confirma la contraseña"), password);
+    await fill(user, screen.getByLabelText("Contraseña", { exact: true }), password);
+    await fill(user, screen.getByLabelText("Confirma la contraseña"), password);
     await user.click(screen.getByRole("checkbox", { name: "Acepto las condiciones de uso." }));
     await user.click(screen.getByRole("checkbox", { name: "He leído la política de privacidad." }));
   };
@@ -186,8 +193,8 @@ describe("Registre amb entitat promotora: `promoting_entity` dins de l'única pe
 
     await fillPersonalDetails(user);
     await user.click(promoterCheckbox());
-    await user.type(screen.getByLabelText("Razón social"), "  Promociones Ejemplo SL  ");
-    await user.type(screen.getByLabelText(/Año de fundación/), "2015");
+    await fill(user, screen.getByLabelText("Razón social"), "  Promociones Ejemplo SL  ");
+    await fill(user, screen.getByLabelText(/Año de fundación/), "2015");
     // La ubicació és opcional i es deixa buida.
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(fetchMock).not.toHaveBeenCalled();
@@ -225,8 +232,8 @@ describe("Registre amb entitat promotora: `promoting_entity` dins de l'única pe
 
     await fillPersonalDetails(user);
     await user.click(promoterCheckbox());
-    await user.type(screen.getByLabelText("Razón social"), "Promociones Ejemplo SL");
-    await user.type(screen.getByLabelText(/Ubicación/), " Girona, Girona, España ");
+    await fill(user, screen.getByLabelText("Razón social"), "Promociones Ejemplo SL");
+    await fill(user, screen.getByLabelText(/Ubicación/), " Girona, Girona, España ");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await fillAccessDetails(user);
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
@@ -244,8 +251,8 @@ describe("Registre amb entitat promotora: `promoting_entity` dins de l'única pe
 
     await fillPersonalDetails(user);
     await user.click(promoterCheckbox());
-    await user.type(screen.getByLabelText("Razón social"), "Promociones Ejemplo SL");
-    await user.type(screen.getByLabelText(/Año de fundación/), "2015");
+    await fill(user, screen.getByLabelText("Razón social"), "Promociones Ejemplo SL");
+    await fill(user, screen.getByLabelText(/Año de fundación/), "2015");
     await user.click(promoterCheckbox());
     expect(promoterCheckbox()).not.toBeChecked();
     expect(screen.queryByLabelText("Razón social")).not.toBeInTheDocument();
@@ -278,8 +285,8 @@ describe("Registre amb entitat promotora: `promoting_entity` dins de l'única pe
 
     await fillPersonalDetails(user);
     await user.click(promoterCheckbox());
-    await user.type(screen.getByLabelText("Razón social"), "Promociones Ejemplo SL");
-    await user.type(screen.getByLabelText(/Año de fundación/), "2015");
+    await fill(user, screen.getByLabelText("Razón social"), "Promociones Ejemplo SL");
+    await fill(user, screen.getByLabelText(/Año de fundación/), "2015");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await fillAccessDetails(user);
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
@@ -296,7 +303,7 @@ describe("Registre amb entitat promotora: `promoting_entity` dins de l'única pe
     expect(screen.getByLabelText(/Año de fundación/)).toHaveValue("2015");
     expect(screen.getByLabelText("Correo electrónico")).toHaveValue("maria@example.com");
     await user.clear(screen.getByLabelText(/Año de fundación/));
-    await user.type(screen.getByLabelText(/Año de fundación/), "2010");
+    await fill(user, screen.getByLabelText(/Año de fundación/), "2010");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Contraseña", { exact: true })).toHaveValue(password);
@@ -319,7 +326,7 @@ describe("Registre amb entitat promotora: `promoting_entity` dins de l'única pe
 
     await fillPersonalDetails(user);
     await user.click(promoterCheckbox());
-    await user.type(screen.getByLabelText("Razón social"), "Promociones Ejemplo SL");
+    await fill(user, screen.getByLabelText("Razón social"), "Promociones Ejemplo SL");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
     await fillAccessDetails(user);
     await user.click(screen.getByRole("button", { name: "Crear cuenta" }));
